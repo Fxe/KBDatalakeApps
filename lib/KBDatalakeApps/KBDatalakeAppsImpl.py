@@ -59,7 +59,7 @@ Author: chenry
         self.logger = logging.getLogger(__name__)
 
         # Initialize KBUtilLib utilities
-        #self.dfu = DataFileUtil(self.callback_url)
+        self.dfu = DataFileUtil(self.callback_url)
         #self.utils = DatalakeAppUtils(callback_url=self.callback_url)
         #END_CONSTRUCTOR
         pass

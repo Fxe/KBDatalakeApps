@@ -6,8 +6,8 @@
     "contact": "chenry@anl.gov",
     "categories": ["active"],
     "widgets": {
-        "input": null,
-        "output": "kbaseReportView"
+        "output": "no-display",
+        "input": null
     },
     "parameters": [
         {
