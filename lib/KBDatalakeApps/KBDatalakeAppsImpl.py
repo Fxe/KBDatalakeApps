@@ -7,11 +7,11 @@ from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.DataFileUtilClient import DataFileUtil
 
 # Import KBUtilLib utilities for common functionality
-from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
+#from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
 
-class DatalakeAppUtils(KBWSUtils, KBCallbackUtils, SharedEnvUtils):
-    """Custom utility class combining KBUtilLib modules for datalake operations."""
-    pass
+#class DatalakeAppUtils(KBWSUtils, KBCallbackUtils, SharedEnvUtils):
+#    """Custom utility class combining KBUtilLib modules for datalake operations."""
+#    pass
 #END_HEADER
 
 
@@ -59,8 +59,8 @@ Author: chenry
         self.logger = logging.getLogger(__name__)
 
         # Initialize KBUtilLib utilities
-        self.dfu = DataFileUtil(self.callback_url)
-        self.utils = DatalakeAppUtils(callback_url=self.callback_url)
+        #self.dfu = DataFileUtil(self.callback_url)
+        #self.utils = DatalakeAppUtils(callback_url=self.callback_url)
         #END_CONSTRUCTOR
         pass
 
