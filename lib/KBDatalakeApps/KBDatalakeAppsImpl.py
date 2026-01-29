@@ -102,7 +102,17 @@ Author: chenry
         suffix = params.get('suffix', '')
         save_models = params.get('save_models', 0)
 
-        print(params)
+        for ref in params['input_refs']:
+            kbase_input_object = self.kbase_api.get_from_ws(ref)
+            kbase_input_object_type = kbase_input_object.info.type
+            print(kbase_input_object_type)
+            if kbase_input_object_type == 'wololo':
+                pass
+            elif kbase_input_object_type == 'wololo2':
+                pass
+            else:
+                pass
+                #raise ValueError('')
 
         # Process the input references
         results_text = f"Building genome datalake tables.\n"
@@ -135,7 +145,7 @@ Author: chenry
                                    params['workspace_name'],
                                    'KBaseFBA.GenomeDataLakeTables',
                                    output_object,
-                                   meta=output_object # adding all data as metadata
+                                   meta={'key1': 'value1'}
         )
 
         # Create report with results
