@@ -3,6 +3,7 @@
 import logging
 import os
 import uuid
+import shutil
 
 from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.DataFileUtilClient import DataFileUtil
@@ -120,7 +121,6 @@ Author: chenry
             'pack': 'zip'
         })['shock_id']
 
-        import os
         print(os.listdir('/kb/module/data/html'))
         print(output_directory)
         print(os.listdir(output_directory))
