@@ -105,7 +105,7 @@ Author: chenry
         for ref in params['input_refs']:
             kbase_input_object = self.kbase_api.get_from_ws(ref)
             kbase_input_object_type = kbase_input_object.info.type
-            print(kbase_input_object_type)
+            print('input_object is:', kbase_input_object_type)
             if kbase_input_object_type == 'wololo':
                 pass
             elif kbase_input_object_type == 'wololo2':
@@ -129,23 +129,26 @@ Author: chenry
         # Create KBaseFBA.GenomeDataLakeTables
 
         output_object = {
-            'name': '',
-            'description': '',
-            'genomeset_ref': '',
+            'name': 'no_name',
+            'description': 'fake',
+            'genomeset_ref': '77057/3/1',
             'pangenome_data': [{
-                'pangenome_id': 'none',
-                'pangenome_taxonomy': 'none',
+                'pangenome_id': 'super_fake',
+                'pangenome_taxonomy': 'alien',
                 'user_genomes': [],
                 'datalake_genomes': [],
-                'table_handle_ref': ''
+                'sqllite_tables_handle_ref': 'KBH_248118'
             }],
         }
 
-        self.kbase_api.save_object('demo_output',
+        self.kbase_api.save_object('fake_output',
                                    params['workspace_name'],
                                    'KBaseFBA.GenomeDataLakeTables',
                                    output_object,
-                                   meta={'key1': 'value1'}
+                                   meta={
+                                       'key1': 'value1',
+                                       'note': 'all fields are fake values for testing'
+                                   }
         )
 
         # Create report with results
