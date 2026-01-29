@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.10-slim-bullseye
 LABEL us.kbase.python="3.10"
 LABEL maintainer="chenry@anl.gov"
 
