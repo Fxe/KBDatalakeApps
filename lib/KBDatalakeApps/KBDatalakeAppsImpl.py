@@ -49,6 +49,11 @@ Author: chenry
         for key in required_keys:
             if key not in params or params[key] is None:
                 raise ValueError(f"Required parameter '{key}' is missing")
+
+    @staticmethod
+    def get_berdl_token():
+        return os.environ.get('KBASE_SECURE_CONFIG_PARAM_kbaselakehouseserviceaccount_token')
+
     #END_CLASS_HEADER
 
     # config contains contents of config file in a hash or None if it couldn't
@@ -96,9 +101,11 @@ Author: chenry
 
         print('data dir')
         print(os.listdir('/data'))
+        if os.path.exists('/data') and os.path.exists('/data/reference_data'):
+            print(os.listdir('/data/reference_data'))
 
-        print('env keys')
-        print(os.environ.keys())
+        print('BERDL Token')
+        print(self.get_berdl_token())
 
         # Validate required parameters
         self._validate_params(params, ['input_refs', 'workspace_name'])

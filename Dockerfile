@@ -15,11 +15,17 @@ RUN apt-get install -y build-essential \
                        openjdk-11-jre \
                        unzip \
                        htop \
+                       wget \
                        curl \
                        gcc \
                        cmake
 
 #RUN rm -rf /var/lib/apt/lists/*
+
+# Install uv (goes to /root/.local/bin by default)
+RUN wget -qO- https://astral.sh/uv/install.sh | sh
+RUN mkdir -p /opt/env
+RUN /root/.local/bin/uv venv --python 3.10 /opt/env/berdl_genomes
 
 # Copy in the SDK
 COPY --from=kbase/kb-sdk:1.2.1 /src /sdk
@@ -62,6 +68,8 @@ RUN /usr/local/bin/pip install -r /tmp/requirements.txt
 COPY ./ /kb/module
 RUN mkdir -p /kb/module/work
 RUN chmod -R a+rw /kb/module
+
+RUN /root/.local/bin/uv pip install --python /opt/env/berdl_genomes --no-progress -r /kb/module/requirements.txt
 
 # @chenry
 RUN mkdir -p /deps
