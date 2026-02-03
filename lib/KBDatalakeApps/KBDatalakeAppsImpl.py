@@ -111,17 +111,19 @@ Author: chenry
         print(str(input_params.resolve()))
         with open(str(input_params.resolve()), 'w') as fh:
             _params = dict(params)
-            _params['_scratch'] = self.shared_folder
-            _params['_token'] = ctx['token']
-            _params['_ws_url'] = self.config['workspace-url']
+            _params['_ctx'] = ctx
+            _params['_config'] = self.config
             fh.write(json.dumps(_params))
 
+        print(os.environ)
         print('ctx', ctx)
         print('contig', self.config)
         print('data dir')
         print(os.listdir('/data'))
         if os.path.exists('/data') and os.path.exists('/data/reference_data'):
             print(os.listdir('/data/reference_data'))
+
+
 
         print('BERDL Token')
         print(self.get_berdl_token())
