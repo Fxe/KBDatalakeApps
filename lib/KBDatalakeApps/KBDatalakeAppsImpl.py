@@ -49,6 +49,11 @@ Author: chenry
         for key in required_keys:
             if key not in params or params[key] is None:
                 raise ValueError(f"Required parameter '{key}' is missing")
+
+    @staticmethod
+    def get_berdl_token():
+        return os.environ.get('KBASE_SECURE_CONFIG_PARAM_kbaselakehouseserviceaccount_token')
+
     #END_CLASS_HEADER
 
     # config contains contents of config file in a hash or None if it couldn't
@@ -94,6 +99,14 @@ Author: chenry
         #BEGIN build_genome_datalake_tables
         self.logger.info(f"Building genome datalake tables with params: {params}")
 
+        print('data dir')
+        print(os.listdir('/data'))
+        if os.path.exists('/data') and os.path.exists('/data/reference_data'):
+            print(os.listdir('/data/reference_data'))
+
+        print('BERDL Token')
+        print(self.get_berdl_token())
+
         # Validate required parameters
         self._validate_params(params, ['input_refs', 'workspace_name'])
 
@@ -114,17 +127,7 @@ Author: chenry
                 pass
                 #raise ValueError('')
 
-        # Process the input references
-        results_text = f"Building genome datalake tables.\n"
-        results_text += f"Input references: {len(input_refs)} object(s)\n"
-        results_text += f"Suffix: {suffix if suffix else '(none)'}\n"
-        results_text += f"Save models: {'Yes' if save_models else 'No'}\n\n"
 
-        # TODO: Implement actual table building logic here
-        # For now, just list the input refs
-        results_text += "Input objects:\n"
-        for ref in input_refs:
-            results_text += f"  - {ref}\n"
 
         # Create KBaseFBA.GenomeDataLakeTables
 
