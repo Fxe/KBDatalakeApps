@@ -6,6 +6,7 @@ import os
 import uuid
 from pathlib import Path
 import shutil
+import subprocess
 
 from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.DataFileUtilClient import DataFileUtil
@@ -58,6 +59,22 @@ Author: chenry
     @staticmethod
     def get_berdl_token():
         return os.environ.get('KBASE_SECURE_CONFIG_PARAM_kbaselakehouseserviceaccount_token')
+
+    @staticmethod
+    def run_genome_pipeline():
+        cmd = ["/kb/module/scripts/run_genome_pipeline.sh"]
+        process = subprocess.Popen(
+            cmd,
+            stdout=None,  # inherit parent stdout
+            stderr=None,  # inherit parent stderr
+            text=True
+        )
+
+        returncode = process.wait()
+        if returncode != 0:
+            raise RuntimeError(
+                f"Genome pipeline failed with exit code {returncode}"
+            )
 
     #END_CLASS_HEADER
 

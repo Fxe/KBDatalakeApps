@@ -9,7 +9,7 @@ from cobrakbase import KBaseAPI
 
 def main(input_params):
     #  setup clients/methods
-    kbase = KBaseAPI(os.environ['KB_AUTH_TOKEN'])
+    kbase = KBaseAPI(input_params['_ctx']['token'])
 
     #  extract genomes
     genomes = []
@@ -26,9 +26,9 @@ def main(input_params):
             pass
             # raise ValueError('')
 
-    #paths = GenomePaths(root=Path("/test/syncom").resolve())
-    #berdl_prep_genomes = BERDLPreGenome(kbase, paths)
-    #user_to_clade, ani_clade, df_ani_fitness, df_ani_phenotype = berdl_prep_genomes.run(genomes)
+    paths = GenomePaths(root=Path(input_params['_config']['scratch']).resolve())
+    berdl_prep_genomes = BERDLPreGenome(kbase, paths)
+    user_to_clade, ani_clade, df_ani_fitness, df_ani_phenotype = berdl_prep_genomes.run(genomes)
 
 
 if __name__ == "__main__":
