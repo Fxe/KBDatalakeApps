@@ -5,4 +5,4 @@ set -euo pipefail
 source /opt/env/berdl_genomes/bin/activate
 
 # Run the genome pipeline
-python /kb/module/berdl/berdl/pipeline.py
+python /kb/module/berdl/berdl/pipeline.py "$@"
