@@ -3,6 +3,7 @@ import os
 from modelseedpy import MSGenome
 #from genome_paths import GenomePaths
 import pyarrow as pa
+import pandas as pd
 
 
 def run_ani(query, library, output_file, threads=20):
@@ -134,7 +135,6 @@ class BERDLPreGenome:
         def q_transform(s):
             return assembly_to_user_id[s.split('/')[-1]]
 
-        import pandas as pd
         df_anl_ecoli = pd.read_csv('/data/reference_data/meta_phenotype_ecoli.tsv', sep='\t')
         df_pmi = pd.read_csv('/data/reference_data/meta_phenotype_pmi.tsv', sep='\t')
         df_leaf = pd.read_csv('/data/reference_data/meta_phenotype_leaf.tsv', sep='\t')

@@ -77,10 +77,31 @@ Author: chenry
             env=env
         )
 
-        returncode = process.wait()
-        if returncode != 0:
+        ret = process.wait()
+        if ret != 0:
             raise RuntimeError(
-                f"Genome pipeline failed with exit code {returncode}"
+                f"Genome pipeline failed with exit code {ret}"
+            )
+
+    @staticmethod
+    def run_pangenome_pipeline(input_file, selected_member_id):
+        cmd = ["/kb/module/scripts/run_pangenome_pipeline.sh", str(input_file), str(selected_member_id)]
+
+        env = os.environ.copy()
+        env["PYTHONPATH"] = "/opt/env/berdl_genomes/lib/python3.10/site-packages"
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=None,  # inherit parent stdout
+            stderr=None,  # inherit parent stderr
+            text=True,
+            env=env
+        )
+
+        ret = process.wait()
+        if ret != 0:
+            raise RuntimeError(
+                f"Genome pipeline failed with exit code {ret}"
             )
 
     #END_CLASS_HEADER
@@ -165,6 +186,13 @@ Author: chenry
 
         self.run_genome_pipeline(input_params.resolve())
 
+        path_pangenome = Path(self.shared_folder) / "pangenome"
+        for folder_pangenome in os.listdir(str(path_pangenome)):
+            if os.path.isdir(f'{path_pangenome}/folder_pangenome'):
+                print(f'Found pangenome folder: {folder_pangenome}')
+                # run pangenome pipeline for - folder_pangenome
+                self.run_pangenome_pipeline(input_params.resolve(), folder_pangenome)
+
         path_user_genome = Path(self.shared_folder) / "genome"
         t_start_time = time.perf_counter()
         for filename_faa in os.listdir(str(path_user_genome)):
@@ -175,6 +203,7 @@ Author: chenry
                 print(filename_faa, len(proteins))
 
                 try:
+                    print(f"run kb_kofam annotation for {genome}")
                     self.logger.info(f"run annotation for {genome}")
                     start_time = time.perf_counter()
                     result = self.kb_kofam.annotate_proteins(proteins)
@@ -185,6 +214,7 @@ Author: chenry
                     print(f'nope {ex}')
 
                 try:
+                    print(f"run kb_bakta annotation for {genome}")
                     self.logger.info(f"run annotation for {genome}")
                     start_time = time.perf_counter()
                     result = self.kb_bakta.annotate_proteins(proteins)
@@ -195,6 +225,7 @@ Author: chenry
                     print(f'nope {ex}')
 
                 try:
+                    print(f"run kb_psortb annotation for {genome}")
                     self.logger.info(f"run annotation for {genome}")
                     start_time = time.perf_counter()
                     result = self.kb_psortb.annotate_proteins(proteins, "-n")
@@ -205,11 +236,6 @@ Author: chenry
                     print(f'nope {ex}')
         t_end_time = time.perf_counter()
         print(f"Total Execution time annotation: {t_end_time - t_start_time} seconds")
-
-        path_pangenome = Path(self.shared_folder) / "pangenome"
-        for folder_pangenome in os.listdir(str(path_pangenome)):
-            print(f'Found pangenome folder: {folder_pangenome}')
-            # run pangenome pipeline for - folder_pangenome
 
         # Create KBaseFBA.GenomeDataLakeTables
 
