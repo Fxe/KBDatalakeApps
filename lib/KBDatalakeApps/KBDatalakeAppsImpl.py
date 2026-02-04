@@ -249,7 +249,7 @@ Author: chenry
                 'pangenome_taxonomy': 'alien',
                 'user_genomes': [],
                 'datalake_genomes': [],
-                'sqllite_tables_handle_ref': 'KBH_248118'
+                'sqllite_tables_handle_ref': 'KBH_248173'
             }],
         }
 
