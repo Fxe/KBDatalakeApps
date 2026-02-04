@@ -12,6 +12,7 @@ class BERDLPangenome:
 
     def run(self, selected_clade_member_id):
         clade_id = self.pg.get_member_representative(selected_clade_member_id)
+        print('clade_id', clade_id)
         clade_members = self.pg.get_clade_members(clade_id)
         clade_gene_clusters = self.pg.get_clade_gene_clusters(clade_id)
         clade_cluster_ids = set(clade_gene_clusters['gene_cluster_id'])
