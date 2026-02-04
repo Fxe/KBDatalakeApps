@@ -1,6 +1,6 @@
 import polars as pl
 from pathlib import Path
-from query_genome import QueryGenomeABC
+from berdl.query.query_genome import QueryGenomeABC
 
 
 class QueryGenomeLocal(QueryGenomeABC):

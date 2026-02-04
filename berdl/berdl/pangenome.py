@@ -2,8 +2,8 @@
 
 class BERDLPangenome:
 
-    def __init__(self):
-        self.pg = None  # pan-genome query api
+    def __init__(self, pg):
+        self.pg = pg  # pan-genome query api
         pass
 
     def run(self, genome_id):
