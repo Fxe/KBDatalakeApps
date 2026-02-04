@@ -44,10 +44,9 @@ class QueryGenomeLocal(QueryGenomeABC):
         return None
 
     def get_genome_features(self, genome_id: str):
-        res = self.get_cdm_genome_id_by_name(genome_id)
-        print(genome_id, '->', res)
-        if res:
-            ccol_id = res['entity_id']
+        ccol_id = self.get_cdm_genome_id_by_name(genome_id)
+        print(genome_id, '->', ccol_id)
+        if ccol_id:
             df = self.ldf_ccol_x_feature.filter(pl.col("contig_collection_id") == ccol_id).select(
                 pl.col("feature_id")).collect()
             cdm_feat_ids = {o[0] for o in df.rows()}
