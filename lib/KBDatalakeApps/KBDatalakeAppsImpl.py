@@ -21,6 +21,7 @@ from installed_clients.kb_kofamClient import kb_kofam
 from modelseedpy import MSGenome
 from cobrakbase import KBaseAPI
 from installed_clients.baseclient import ServerError
+from annotation.annotation import test_annotation
 
 # Import KBUtilLib utilities for common functionality
 #from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
@@ -223,7 +224,7 @@ Author: chenry
         print('annotate_protein_params:', annotate_protein_params)
 
         result = rast_client.annotate_proteins(annotate_protein_params)
-        print('rast annotation param', result)
+        print('rast annotation result', result)
         functions_list = result.get('functions', [])
         records = []
         for id, functions in zip(ids, functions_list):
@@ -283,6 +284,8 @@ Author: chenry
         # return variables are: output
         #BEGIN build_genome_datalake_tables
         self.logger.info(f"Building genome datalake tables with params: {params}")
+        skip_annotation = params['skip_annotation'] == 1
+        skip_pangenome = params['skip_pangenome'] == 1
 
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
@@ -303,6 +306,8 @@ Author: chenry
         if os.path.exists('/data') and os.path.exists('/data/reference_data'):
             print(os.listdir('/data/reference_data'))
 
+        test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
+        """
         def test_annotation_rast():
             # Printing test file for RAST annotation demonstration
             proteins = [
@@ -323,6 +328,7 @@ Author: chenry
             test_annotation_rast()
         except ServerError as ex_server:
             logging.warning(f'error: {ex_server}')
+        """
 
         #print('BERDL Token')
         #print(self.get_berdl_token())
@@ -342,53 +348,58 @@ Author: chenry
             if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                 print(f'Found pangenome folder: {folder_pangenome}')
                 # run pangenome pipeline for - folder_pangenome
-                #self.run_pangenome_pipeline(input_params.resolve(), folder_pangenome)
+                if not skip_pangenome:
+                    self.run_pangenome_pipeline(input_params.resolve(), folder_pangenome)
+                else:
+                    print('skip pangenome')
 
         path_user_genome = Path(self.shared_folder) / "genome"
         t_start_time = time.perf_counter()
         for filename_faa in os.listdir(str(path_user_genome)):
-            print(filename_faa)
-            """
-            if filename_faa.endswith('.faa'):
-                genome = MSGenome.from_fasta(str(path_user_genome / filename_faa))
-                proteins = {f.id:f.seq for f in genome.features if f.seq}
-                print('running annotation for', filename_faa, len(proteins))
+            print('found', filename_faa)
+            if skip_annotation:
+                print('skip_annotation')
+            else:
+                if filename_faa.endswith('.faa'):
+                    genome = MSGenome.from_fasta(str(path_user_genome / filename_faa))
+                    proteins = {f.id:f.seq for f in genome.features if f.seq}
+                    print('running annotation for', filename_faa, len(proteins))
 
-                try:
-                    print(f"run kb_kofam annotation for {genome}")
-                    self.logger.info(f"run annotation for {genome}")
-                    start_time = time.perf_counter()
-                    result = self.kb_kofam.annotate_proteins(proteins)
-                    end_time = time.perf_counter()
-                    print(f"Execution time: {end_time - start_time} seconds")
-                    print(f'received results of type {type(result)} and size {len(result)}')
+                    try:
+                        print(f"run kb_kofam annotation for {genome}")
+                        self.logger.info(f"run annotation for {genome}")
+                        start_time = time.perf_counter()
+                        result = self.kb_kofam.annotate_proteins(proteins)
+                        end_time = time.perf_counter()
+                        print(f"Execution time: {end_time - start_time} seconds")
+                        print(f'received results of type {type(result)} and size {len(result)}')
 
-                    print(result)
-                except Exception as ex:
-                    print(f'nope {ex}')
+                        print(result)
+                    except Exception as ex:
+                        print(f'nope {ex}')
 
-                try:
-                    print(f"run kb_bakta annotation for {genome}")
-                    self.logger.info(f"run annotation for {genome}")
-                    start_time = time.perf_counter()
-                    result = self.kb_bakta.annotate_proteins(proteins)
-                    end_time = time.perf_counter()
-                    print(f"Execution time: {end_time - start_time} seconds")
-                    print(f'received results of type {type(result)} and size {len(result)}')
-                except Exception as ex:
-                    print(f'nope {ex}')
+                    try:
+                        print(f"run kb_bakta annotation for {genome}")
+                        self.logger.info(f"run annotation for {genome}")
+                        start_time = time.perf_counter()
+                        result = self.kb_bakta.annotate_proteins(proteins)
+                        end_time = time.perf_counter()
+                        print(f"Execution time: {end_time - start_time} seconds")
+                        print(f'received results of type {type(result)} and size {len(result)}')
+                    except Exception as ex:
+                        print(f'nope {ex}')
 
-                try:
-                    print(f"run kb_psortb annotation for {genome}")
-                    self.logger.info(f"run annotation for {genome}")
-                    start_time = time.perf_counter()
-                    result = self.kb_psortb.annotate_proteins(proteins, "-n")
-                    end_time = time.perf_counter()
-                    print(f"Execution time: {end_time - start_time} seconds")
-                    print(f'received results of type {type(result)} and size {len(result)}')
-                except Exception as ex:
-                    print(f'nope {ex}')
-            """
+                    try:
+                        print(f"run kb_psortb annotation for {genome}")
+                        self.logger.info(f"run annotation for {genome}")
+                        start_time = time.perf_counter()
+                        result = self.kb_psortb.annotate_proteins(proteins, "-n")
+                        end_time = time.perf_counter()
+                        print(f"Execution time: {end_time - start_time} seconds")
+                        print(f'received results of type {type(result)} and size {len(result)}')
+                    except Exception as ex:
+                        print(f'nope {ex}')
+
         t_end_time = time.perf_counter()
         print(f"Total Execution time annotation: {t_end_time - t_start_time} seconds")
 
