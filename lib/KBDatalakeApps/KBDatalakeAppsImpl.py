@@ -294,6 +294,7 @@ Author: chenry
             print('skip genome pipeline')
 
         path_pangenome = Path(self.shared_folder) / "pangenome"
+        path_pangenome.mkdir(parents=True, exist_ok=True)
         for folder_pangenome in os.listdir(str(path_pangenome)):
             if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                 print(f'Found pangenome folder: {folder_pangenome}')
@@ -304,6 +305,7 @@ Author: chenry
                     print('skip pangenome')
 
         path_user_genome = Path(self.shared_folder) / "genome"
+        path_user_genome.mkdir(parents=True, exist_ok=True)
         t_start_time = time.perf_counter()
         for filename_faa in os.listdir(str(path_user_genome)):
             print('found', filename_faa)
@@ -412,17 +414,14 @@ Author: chenry
             }],
         }
 
-        saved_object_info = self.kbase_api.save_object('fake_output',
-                                   params['workspace_name'],
-                                   'KBaseFBA.GenomeDataLakeTables',
-                                   output_object,
-                                   meta={
-                                       'key1': 'value1',
-                                       'note': 'all fields are fake values for testing'
-                                   }
-        )
+        #saved_object_info = self.kbase_api.save_object('fake_output',
+        #                           params['workspace_name'],
+        #                                   'KBaseFBA.GenomeDataLakeTables',
+        #                                   output_object,
+        #                                   meta={}
+        #)
 
-        print(saved_object_info)
+        #print(saved_object_info)
 
         # Create report with results
         report_client = KBaseReport(self.callback_url)
