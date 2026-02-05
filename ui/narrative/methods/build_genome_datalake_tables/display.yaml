@@ -50,6 +50,42 @@ parameters:
             process to your workspace. Leave unchecked to only generate the tables
             without saving intermediate models.
 
+    skip_annotation:
+        ui-name: |
+            Skip Annotation
+        short-hint: |
+            skip skip skip
+        long-hint: |
+            x
+
+    skip_pangenome:
+        ui-name: |
+            Skip Pangenome
+        short-hint: |
+            skip skip skip
+        long-hint: |
+            x
+
+    skip_genome_pipeline:
+        ui-name: |
+            Skip Genome Pipeline
+        short-hint: |
+            Skip the genome processing pipeline
+        long-hint: |
+            Check this box to skip the genome processing pipeline. Use this option
+            if genome data has already been processed and you only need to run
+            other parts of the workflow.
+
+    skip_modeling_pipeline:
+        ui-name: |
+            Skip Modeling Pipeline
+        short-hint: |
+            Skip the metabolic modeling pipeline
+        long-hint: |
+            Check this box to skip the metabolic modeling pipeline. Use this option
+            if you only want to process genome data without building or analyzing
+            metabolic models.
+
 description: |
     <p>This app builds datalake tables from Genome or GenomeSet objects in your
     workspace. The tables can be used for downstream analysis and querying.</p>

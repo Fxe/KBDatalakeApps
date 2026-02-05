@@ -6,16 +6,24 @@ import os
 import uuid
 from pathlib import Path
 import shutil
-import json
 import subprocess
+import time
+import polars as pl
+import cobra
+import pandas as pd
 
 from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.DataFileUtilClient import DataFileUtil
+from installed_clients.RAST_SDKClient import RAST_SDK
 from installed_clients.kb_baktaClient import kb_bakta
 from installed_clients.kb_psortbClient import kb_psortb
 from installed_clients.kb_kofamClient import kb_kofam
-
+from modelseedpy import MSModelUtil
+from modelseedpy.core.msgenome import MSGenome, MSFeature
 from cobrakbase import KBaseAPI
+from installed_clients.baseclient import ServerError
+from annotation.annotation import test_annotation, run_rast, run_kofam
+from KBDatalakeApps.KBDatalakeFunctions import run_phenotype_simulation,run_model_reconstruction,run_user_genome_to_tsv,get_util_instance
 
 # Import KBUtilLib utilities for common functionality
 #from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
@@ -23,6 +31,38 @@ from cobrakbase import KBaseAPI
 #class DatalakeAppUtils(KBWSUtils, KBCallbackUtils, SharedEnvUtils):
 #    """Custom utility class combining KBUtilLib modules for datalake operations."""
 #    pass
+
+def human_size(size):
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024:
+            return f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}PB"
+
+
+def print_path(root: Path):
+    if not root.exists():
+        print(f"{root} does not exist")
+        return
+
+    print(root.name)
+    _print_tree(root, prefix="")
+
+
+def _print_tree(root: Path, prefix: str):
+    entries = sorted(root.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+    for i, path in enumerate(entries):
+        is_last = i == len(entries) - 1
+        connector = "└── " if is_last else "├── "
+
+        if path.is_file():
+            size = human_size(path.stat().st_size)
+            print(prefix + connector + f"{path.name} ({size})")
+        else:
+            print(prefix + connector + path.name)
+            extension = "    " if is_last else "│   "
+            _print_tree(path, prefix + extension)
+
 #END_HEADER
 
 
@@ -66,22 +106,78 @@ Author: chenry
         cmd = ["/kb/module/scripts/run_genome_pipeline.sh", str(input_file)]
 
         env = os.environ.copy()
-        env["PYTHONPATH"] = "/opt/env/berdl_genomes/lib/python3.10/site-packages"
+        env.pop("PYTHONPATH", None)
 
         process = subprocess.Popen(
             cmd,
             stdout=None,  # inherit parent stdout
             stderr=None,  # inherit parent stderr
-            text=True,
             env=env
         )
 
-        returncode = process.wait()
-        if returncode != 0:
+        ret = process.wait()
+        if ret != 0:
             raise RuntimeError(
-                f"Genome pipeline failed with exit code {returncode}"
+                f"Genome pipeline failed with exit code {ret}"
             )
 
+    @staticmethod
+    def run_pangenome_pipeline(input_file, selected_member_id):
+        cmd = ["/kb/module/scripts/run_pangenome_pipeline.sh", str(input_file), str(selected_member_id)]
+
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=None,  # inherit parent stdout
+            stderr=None,  # inherit parent stderr
+            env=env
+        )
+
+        ret = process.wait()
+        if ret != 0:
+            raise RuntimeError(
+                f"Genome pipeline failed with exit code {ret}"
+            )
+
+    @staticmethod
+    def run_RAST_annotation(input_filepath, output_filename, rast_client):
+        sequence_hash = {}
+        current_id = None
+        current_seq = []
+        with open(input_filepath) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(">"):
+                    if current_id:
+                        sequence_hash[current_id] = "".join(current_seq)
+                    current_id = line[1:].split()[0]
+                    current_seq = []
+                elif line:
+                    current_seq.append(line)
+        if current_id:
+            sequence_hash[current_id] = "".join(current_seq)
+        proteins = []
+        ids = []
+        for id, sequence in sequence_hash.items():
+            proteins.append(sequence)
+            ids.append(id)
+
+        annotate_protein_params = {'proteins': proteins}
+        print('annotate_protein_params:', annotate_protein_params)
+
+        result = rast_client.annotate_proteins(annotate_protein_params)
+        print('rast annotation result', result)
+        functions_list = result.get('functions', [])
+        records = []
+        for id, functions in zip(ids, functions_list):
+            records.append({
+                'id': id,
+                'functions': functions
+            })
+        df = pd.DataFrame.from_records(records)
+        df.to_csv(output_filename, sep='\t', index=False)
     #END_CLASS_HEADER
 
     # config contains contents of config file in a hash or None if it couldn't
@@ -95,13 +191,17 @@ Author: chenry
                             level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize KBUtilLib utilities
+        # Initialize KBUtilib utilities
         self.dfu = DataFileUtil(self.callback_url)
         self.kbase_api = KBaseAPI(os.environ['KB_AUTH_TOKEN'], config=config)
-        self.kb_bakta = kb_bakta(self.callback_url)
-        self.kb_psortb = kb_psortb(self.callback_url)
-        self.kb_kofam = kb_kofam(self.callback_url)
-        #self.utils = DatalakeAppUtils(callback_url=self.callback_url)
+        self.kb_bakta = kb_bakta(self.callback_url, service_ver='beta')
+        self.kb_psortb = kb_psortb(self.callback_url, service_ver='beta')
+        self.kb_kofam = kb_kofam(self.callback_url, service_ver='beta')
+        self.kb_version = "appdev"
+        self.util = get_util_instance(self.kb_version)
+
+        print('polars thread pool', pl.thread_pool_size())
+        self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
         #END_CONSTRUCTOR
         pass
 
@@ -129,6 +229,10 @@ Author: chenry
         # return variables are: output
         #BEGIN build_genome_datalake_tables
         self.logger.info(f"Building genome datalake tables with params: {params}")
+        skip_annotation = params['skip_annotation'] == 1
+        skip_pangenome = params['skip_pangenome'] == 1
+        skip_genome_pipeline = params['skip_genome_pipeline'] == 1
+        skip_modeling_pipeline = params['skip_modeling_pipeline'] == 1
 
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
@@ -149,7 +253,8 @@ Author: chenry
         if os.path.exists('/data') and os.path.exists('/data/reference_data'):
             print(os.listdir('/data/reference_data'))
 
-        self.run_genome_pipeline(input_params.resolve())
+        test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
+
 
         #print('BERDL Token')
         #print(self.get_berdl_token())
@@ -162,19 +267,113 @@ Author: chenry
         suffix = params.get('suffix', ctx['token'])
         save_models = params.get('save_models', 0)
 
-        for ref in params['input_refs']:
-            kbase_input_object = self.kbase_api.get_from_ws(ref)
-            kbase_input_object_type = kbase_input_object.info.type
-            print('input_object is:', kbase_input_object_type)
-            if kbase_input_object_type == 'wololo':
-                pass
-            elif kbase_input_object_type == 'wololo2':
-                pass
+        if not skip_genome_pipeline:
+            self.run_genome_pipeline(input_params.resolve())
+        else:
+            print('skip genome pipeline')
+
+        path_pangenome = Path(self.shared_folder) / "pangenome"
+        path_pangenome.mkdir(parents=True, exist_ok=True)
+        for folder_pangenome in os.listdir(str(path_pangenome)):
+            if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
+                print(f'Found pangenome folder: {folder_pangenome}')
+                # run pangenome pipeline for - folder_pangenome
+                if not skip_pangenome:
+                    self.run_pangenome_pipeline(input_params.resolve(), folder_pangenome)
+                else:
+                    print('skip pangenome')
+
+        path_user_genome = Path(self.shared_folder) / "genome"
+        path_user_genome.mkdir(parents=True, exist_ok=True)
+        t_start_time = time.perf_counter()
+        for filename_faa in os.listdir(str(path_user_genome)):
+            print('found', filename_faa)
+            if skip_annotation:
+                print('skip_annotation')
             else:
-                pass
-                #raise ValueError('')
+                if filename_faa.endswith('.faa'):
+                    input_genome_file = str(path_user_genome / filename_faa)
+                    try:
+                        output_annotation = path_user_genome / f'{filename_faa[:-4]}_kofam.tsv'
+                        run_kofam(self.kb_kofam, input_genome_file, output_annotation)
+                    except Exception as ex:
+                        print(f'nope {ex}')
 
+                    try:
+                        output_annotation = path_user_genome / f'{filename_faa[:-4]}_rast.tsv'
+                        run_rast(self.rast_client, input_genome_file, output_annotation)
+                    except Exception as ex:
+                        print(f'nope {ex}')
 
+                    """
+                    try:
+                        print(f"run kb_bakta annotation for {genome}")
+                        self.logger.info(f"run annotation for {genome}")
+                        start_time = time.perf_counter()
+                        result = self.kb_bakta.annotate_proteins(proteins)
+                        end_time = time.perf_counter()
+                        print(f"Execution time: {end_time - start_time} seconds")
+                        print(f'received results of type {type(result)} and size {len(result)}')
+                    except Exception as ex:
+                        print(f'nope {ex}')
+
+                    try:
+                        print(f"run kb_psortb annotation for {genome}")
+                        self.logger.info(f"run annotation for {genome}")
+                        start_time = time.perf_counter()
+                        result = self.kb_psortb.annotate_proteins(proteins, "-n")
+                        end_time = time.perf_counter()
+                        print(f"Execution time: {end_time - start_time} seconds")
+                        print(f'received results of type {type(result)} and size {len(result)}')
+                    except Exception as ex:
+                        print(f'nope {ex}')
+                    """
+
+        if not skip_modeling_pipeline:
+            for input_ref in input_refs:
+                info = self.util.get_object_info(input_ref)
+                genome_tsv_path = path_user_genome / f'{info[1]}_genome.tsv'
+                run_user_genome_to_tsv(input_ref, genome_tsv_path)
+
+                # Print head of genome TSV for testing
+                print(f"=== Head of genome TSV: {genome_tsv_path} ===")
+                with open(genome_tsv_path, 'r') as f:
+                    for i, line in enumerate(f):
+                        if i >= 5:
+                            break
+                        print(line.rstrip())
+                print("=" * 50)
+
+                # Run model reconstruction
+                model_output_path = path_user_genome / f'{info[1]}_model'
+                run_model_reconstruction(str(genome_tsv_path), str(model_output_path))
+
+                # Print head of model output for testing
+                model_data_file = str(model_output_path) + "_data.json"
+                print(f"=== Head of model data: {model_data_file} ===")
+                with open(model_data_file, 'r') as f:
+                    content = f.read(2000)
+                    print(content[:2000])
+                print("=" * 50)
+
+                # Run phenotype simulation
+                phenotype_output_path = path_user_genome / f'{info[1]}_phenotypes.json'
+                cobra_model_path = str(model_output_path) + "_cobra.json"
+                run_phenotype_simulation(cobra_model_path, str(phenotype_output_path))
+
+                # Print head of phenotype output for testing
+                print(f"=== Head of phenotype results: {phenotype_output_path} ===")
+                with open(phenotype_output_path, 'r') as f:
+                    content = f.read(2000)
+                    print(content[:2000])
+                print("=" * 50)
+        else:
+            print('skip modeling pipeline')
+
+        t_end_time = time.perf_counter()
+        print(f"Total Execution time annotation: {t_end_time - t_start_time} seconds")
+
+        print_path(Path(self.shared_folder).resolve())
 
         # Create KBaseFBA.GenomeDataLakeTables
 
@@ -187,19 +386,20 @@ Author: chenry
                 'pangenome_taxonomy': 'alien',
                 'user_genomes': [],
                 'datalake_genomes': [],
-                'sqllite_tables_handle_ref': 'KBH_248118'
+                'sqllite_tables_handle_ref': 'KBH_248173'
+                # Chris sqlite KBH_248173
+                # random e. coli? assembly KBH_248118
             }],
         }
 
-        self.kbase_api.save_object('fake_output',
-                                   params['workspace_name'],
-                                   'KBaseFBA.GenomeDataLakeTables',
-                                   output_object,
-                                   meta={
-                                       'key1': 'value1',
-                                       'note': 'all fields are fake values for testing'
-                                   }
-        )
+        #saved_object_info = self.kbase_api.save_object('fake_output',
+        #                           params['workspace_name'],
+        #                                   'KBaseFBA.GenomeDataLakeTables',
+        #                                   output_object,
+        #                                   meta={}
+        #)
+
+        #print(saved_object_info)
 
         # Create report with results
         report_client = KBaseReport(self.callback_url)
@@ -210,7 +410,7 @@ Author: chenry
         # Write app-config.json so the DataTables Viewer knows which object to display
         # Use the first input reference as the UPA for the viewer
         app_config = {
-            "upa": input_refs[0] if input_refs else None
+            "upa": "76990/Test2"
         }
         app_config_path = os.path.join(output_directory, 'app-config.json')
         with open(app_config_path, 'w') as f:
@@ -224,7 +424,7 @@ Author: chenry
 
         self.logger.info(f"HTML directory contents: {os.listdir(output_directory)}")
         self.logger.info(f"Shock ID: {shock_id}")
-        
+
 
         html_report = [{
             'shock_id': shock_id,

@@ -43,6 +43,54 @@
                 "checked_value": 1,
                 "unchecked_value": 0
             }
+        },
+        {
+            "id": "skip_annotation",
+            "optional": false,
+            "advanced": true,
+            "allow_multiple": false,
+            "default_values": ["0"],
+            "field_type": "checkbox",
+            "checkbox_options": {
+                "checked_value": 1,
+                "unchecked_value": 0
+            }
+        },
+        {
+            "id": "skip_pangenome",
+            "optional": false,
+            "advanced": true,
+            "allow_multiple": false,
+            "default_values": ["0"],
+            "field_type": "checkbox",
+            "checkbox_options": {
+                "checked_value": 1,
+                "unchecked_value": 0
+            }
+        },
+        {
+            "id": "skip_genome_pipeline",
+            "optional": false,
+            "advanced": true,
+            "allow_multiple": false,
+            "default_values": ["0"],
+            "field_type": "checkbox",
+            "checkbox_options": {
+                "checked_value": 1,
+                "unchecked_value": 0
+            }
+        },
+        {
+            "id": "skip_modeling_pipeline",
+            "optional": false,
+            "advanced": true,
+            "allow_multiple": false,
+            "default_values": ["0"],
+            "field_type": "checkbox",
+            "checkbox_options": {
+                "checked_value": 1,
+                "unchecked_value": 0
+            }
         }
     ],
     "behavior": {
@@ -67,6 +115,26 @@
                 {
                     "input_parameter": "save_models",
                     "target_property": "save_models",
+                    "target_type_transform": "int"
+                },
+                {
+                    "input_parameter": "skip_annotation",
+                    "target_property": "skip_annotation",
+                    "target_type_transform": "int"
+                },
+                {
+                    "input_parameter": "skip_pangenome",
+                    "target_property": "skip_pangenome",
+                    "target_type_transform": "int"
+                },
+                {
+                    "input_parameter": "skip_genome_pipeline",
+                    "target_property": "skip_genome_pipeline",
+                    "target_type_transform": "int"
+                },
+                {
+                    "input_parameter": "skip_modeling_pipeline",
+                    "target_property": "skip_modeling_pipeline",
                     "target_type_transform": "int"
                 }
             ],
