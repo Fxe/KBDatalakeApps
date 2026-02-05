@@ -220,7 +220,8 @@ Author: chenry
 
         print(proteins)
 
-        result = rast_client.annotate_proteins({'proteins': proteins})
+        #result = rast_client.annotate_proteins({'proteins': proteins})
+        result = rast_client.annotate_proteins(proteins)
         functions_list = result.get('functions', [])
         records = []
         for id, functions in zip(ids, functions_list):
@@ -251,7 +252,7 @@ Author: chenry
         self.kb_kofam = kb_kofam(self.callback_url, service_ver='beta')
 
         print('polars thread pool', pl.thread_pool_size())
-        self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
+        self.rast_client = RAST_SDK(self.callback_url)
         #self.utils = DatalakeAppUtils(callback_url=self.callback_url)
         #END_CONSTRUCTOR
         pass
