@@ -10,6 +10,7 @@ import json
 import subprocess
 import time
 import polars as pl
+import pandas as pd
 
 from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.DataFileUtilClient import DataFileUtil
@@ -196,7 +197,7 @@ Author: chenry
         pass
 
     @staticmethod
-    def run_RAST_annotation(input_filepath,output_filename):
+    def run_RAST_annotation(input_filepath, output_filename, rast_client):
         sequence_hash = {}
         current_id = None
         current_seq = []
@@ -217,7 +218,9 @@ Author: chenry
             proteins.append(sequence)
             ids.append(id)
 
-        result = self.rast_client.annotate_proteins({'proteins': proteins})
+        print(proteins)
+
+        result = rast_client.annotate_proteins({'proteins': proteins})
         functions_list = result.get('functions', [])
         records = []
         for id, functions in zip(ids, functions_list):
@@ -241,7 +244,7 @@ Author: chenry
         self.logger = logging.getLogger(__name__)
 
         # Initialize KBUtilib utilities
-        self.dfu = DataFileULtil(self.callback_url)
+        self.dfu = DataFileUtil(self.callback_url)
         self.kbase_api = KBaseAPI(os.environ['KB_AUTH_TOKEN'], config=config)
         self.kb_bakta = kb_bakta(self.callback_url, service_ver='beta')
         self.kb_psortb = kb_psortb(self.callback_url, service_ver='beta')
@@ -305,6 +308,9 @@ Author: chenry
         with open(self.shared_folder +"/test.faa", "w") as f:
             for seq_id, function, sequence in proteins:
                 f.write(f">{seq_id} {function}\n{sequence}\n")
+
+        with open(self.shared_folder + "/test.faa", 'r') as fh:
+            print('example faa:\n', fh.read())
         self.run_RAST_annotation(self.shared_folder +"/test.faa", self.shared_folder +"/rast.tsv")
 
 
