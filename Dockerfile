@@ -93,7 +93,6 @@ RUN pip install cobra
 RUN pip install networkx
 RUN pip install deepdiff
 RUN pip install h5py
-RUN pip install yaml
 
 RUN echo '1' >/dev/null && pip install --use-deprecated=legacy-resolver git+https://github.com/cshenry/ModelSEEDpy.git
 RUN echo '0' >/dev/null && cd /deps && \
