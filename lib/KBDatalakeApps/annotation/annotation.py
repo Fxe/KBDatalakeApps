@@ -49,7 +49,7 @@ def run_rast(client_rast, genome_file_input, output_file):
     result = client_rast.annotate_proteins({'proteins': l_sequences})
     annotation = {}
     for i in range(len(l_feature_id)):
-        annotation[l_feature_id[i]] = result[i]
+        annotation[l_feature_id[i]] = result['functions'][i]
     print('write: ', str(output_file))
     with open(str(output_file), 'w') as fh:
         fh.write('feature_id\tRAST\n')
@@ -130,7 +130,7 @@ def test_annotation(client_kofam, client_bakta, client_psortb, client_rast):
         print(result)
         annotation = {}
         for i in range(len(l_feature_id)):
-            annotation[l_feature_id[i]] = result[i]
+            annotation[l_feature_id[i]] = result['functions'][i]
         print('parse', annotation)
     except Exception as ex:
         print(f'nope {ex}')
