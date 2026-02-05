@@ -353,7 +353,7 @@ Author: chenry
         # Write app-config.json so the DataTables Viewer knows which object to display
         # Use the first input reference as the UPA for the viewer
         app_config = {
-            "upa": input_refs[0] if input_refs else None
+            "upa": "76990/Test2"
         }
         app_config_path = os.path.join(output_directory, 'app-config.json')
         with open(app_config_path, 'w') as f:
