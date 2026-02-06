@@ -390,7 +390,7 @@ Author: chenry
         #t_end_time = time.perf_counter()
         #print(f"Total Execution time annotation: {t_end_time - t_start_time} seconds")
 
-        print_path(Path(self.shared_folder).resolve())
+
 
         # Create KBaseFBA.GenomeDataLakeTables
 
@@ -408,6 +408,11 @@ Author: chenry
                 # random e. coli? assembly KBH_248118
             }],
         }
+
+        # Done with all tasks
+
+        executor.shutdown()
+        print_path(Path(self.shared_folder).resolve())
 
         #saved_object_info = self.kbase_api.save_object('fake_output',
         #                           params['workspace_name'],
