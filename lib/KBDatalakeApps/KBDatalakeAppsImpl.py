@@ -23,7 +23,7 @@ from modelseedpy.core.msgenome import MSGenome, MSFeature
 from cobrakbase import KBaseAPI
 from installed_clients.baseclient import ServerError
 from annotation.annotation import test_annotation, run_rast, run_kofam
-from KBDatalakeApps.KBDatalakeFunctions import run_phenotype_simulation,run_model_reconstruction,run_user_genome_to_tsv,get_util_instance
+from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils,run_phenotype_simulation,run_model_reconstruction
 
 # Import KBUtilLib utilities for common functionality
 #from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
@@ -197,11 +197,9 @@ Author: chenry
         self.kb_bakta = kb_bakta(self.callback_url, service_ver='beta')
         self.kb_psortb = kb_psortb(self.callback_url, service_ver='beta')
         self.kb_kofam = kb_kofam(self.callback_url, service_ver='beta')
-        self.kb_version = "appdev"
-        self.util = get_util_instance(self.kb_version)
-
-        print('polars thread pool', pl.thread_pool_size())
         self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
+        self.util = KBDataLakeUtils(kb_version="appdev")
+        print('polars thread pool', pl.thread_pool_size())
         #END_CONSTRUCTOR
         pass
 
@@ -254,7 +252,6 @@ Author: chenry
             print(os.listdir('/data/reference_data'))
 
         test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
-
 
         #print('BERDL Token')
         #print(self.get_berdl_token())
@@ -333,7 +330,7 @@ Author: chenry
             for input_ref in input_refs:
                 info = self.util.get_object_info(input_ref)
                 genome_tsv_path = path_user_genome / f'{info[1]}_genome.tsv'
-                run_user_genome_to_tsv(input_ref, genome_tsv_path)
+                self.util.run_user_genome_to_tsv(input_ref, genome_tsv_path)
 
                 # Print head of genome TSV for testing
                 print(f"=== Head of genome TSV: {genome_tsv_path} ===")
