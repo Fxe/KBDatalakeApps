@@ -633,14 +633,13 @@ def run_phenotype_simulation(model_filename,output_filename,max_phenotypes=5):
     """
     # Create safe model ID
     genome_id = os.path.splitext(os.path.basename(model_filename))[0]
-    reference_path = "/data/reference_data"
 
     # Load model
     model = cobra.io.load_json_model(model_filename)
     mdlutl = MSModelUtil(model)
 
     #Loading the phenotype set from the reference path
-    filename = reference_path + "/phenotypes/full_phenotype_set.json"
+    filename = "/kb/module/data/full_phenotype_set.json"
     with open(filename) as f:
         phenoset_data = json.load(f)
     #Setting max phenotypes if specified in the work item
