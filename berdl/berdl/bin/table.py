@@ -26,6 +26,11 @@ if __name__ == "__main__":
         "input_params",
         help="Path to input params JSON file"
     )
+    parser.add_argument(
+        "selected_clade_member",
+        help="clade member to build pangenome"
+    )
+    #  read input params
     args = parser.parse_args()
     filename_input_params = args.input_params
     _selected_clade_member = args.selected_clade_member
