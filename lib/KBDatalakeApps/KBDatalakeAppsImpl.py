@@ -122,7 +122,7 @@ Author: chenry
         ret = process.wait()
         if ret != 0:
             raise RuntimeError(
-                f"Genome pipeline failed with exit code {ret}"
+                f"genome pipeline failed with exit code {ret}"
             )
 
     @staticmethod
@@ -142,7 +142,27 @@ Author: chenry
         ret = process.wait()
         if ret != 0:
             raise RuntimeError(
-                f"Genome pipeline failed with exit code {ret}"
+                f"pangenome pipeline failed with exit code {ret}"
+            )
+
+    @staticmethod
+    def run_build_table(input_file, selected_member_id):
+        cmd = ["/kb/module/scripts/run_generate_table.sh", str(input_file), str(selected_member_id)]
+
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=None,  # inherit parent stdout
+            stderr=None,  # inherit parent stderr
+            env=env
+        )
+
+        ret = process.wait()
+        if ret != 0:
+            raise RuntimeError(
+                f"table builder pipeline failed with exit code {ret}"
             )
 
     @staticmethod
@@ -440,6 +460,15 @@ Author: chenry
             print(t.traceback)
 
         executor.shutdown()
+
+        # safe to build table all task barrier reached
+
+        for folder_pangenome in os.listdir(str(path_pangenome)):
+            if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
+                print(f'Build table for pangenome folder: {folder_pangenome}')
+                # run table assembly pipeline for - folder_pangenome
+                self.run_build_table(input_params.resolve(), folder_pangenome)
+
         print_path(Path(self.shared_folder).resolve())
 
         # Safe to read and export data

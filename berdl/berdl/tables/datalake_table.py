@@ -12,6 +12,16 @@ class DatalakeTableBuilder:
         self.root_genome = root_genome
         self.root_pangenome = root_pangenome
 
+    def build(self):
+        self.build_genome_table()
+        self.build_ani_table()
+        self.build_user_genome_features_table()
+        self.build_pangenome_genome_features_table()
+         #self.build_phenotype_kegg_table()
+        # model
+        # ontology
+        #
+
     def build_genome_table(self):
         conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
         cur = conn.cursor()
@@ -92,7 +102,11 @@ class DatalakeTableBuilder:
                     PRIMARY KEY (genome, contig, feature_id)
                 );
                 """)
-        pass
+
+
+
+        conn.commit()
+        conn.close()
 
     def build_pangenome_genome_features_table(self):
         conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
