@@ -92,9 +92,15 @@ class BERDLPreGenome:
             program_out = run_ani(self.paths.library_user_genomes,
                                   self.paths.skani_fast_phenotypes_db,
                                   self.paths.ani_phenotypes_out)
-        df_ani_clade = _read_search_output_as_parquet(self.paths.ani_kepangenomes_out).to_pandas()
-        df_ani_fitness = _read_search_output_as_parquet(self.paths.ani_fitness_out).to_pandas()
-        df_ani_phenotype = _read_search_output_as_parquet(self.paths.ani_phenotypes_out).to_pandas()
+        df_ani_clade = _read_search_output_as_parquet(self.paths.ani_kepangenomes_out)
+        if not df_ani_clade is None:
+            df_ani_clade = df_ani_clade.to_pandas()
+        df_ani_fitness = _read_search_output_as_parquet(self.paths.ani_fitness_out)
+        if not df_ani_fitness is None:
+            df_ani_fitness = df_ani_fitness.to_pandas()
+        df_ani_phenotype = _read_search_output_as_parquet(self.paths.ani_phenotypes_out)
+        if not df_ani_phenotype is None:
+            df_ani_phenotype = df_ani_phenotype.to_pandas()
         return df_ani_clade, df_ani_fitness, df_ani_phenotype
 
     @staticmethod
@@ -186,14 +192,17 @@ class BERDLPreGenome:
         with open(self.paths.json_user_to_clade, 'w') as fh:
             fh.write(json.dumps(user_to_clade))
 
-        ani_fitness = self.ani_translate_fitness(df_ani_fitness, assembly_to_user_id)
-        ani_phenotype = self.ani_translate_phenotype(df_ani_phenotype, assembly_to_user_id)
-
+        ani_fitness = None
+        if not df_ani_fitness is None:
+            ani_fitness = self.ani_translate_fitness(df_ani_fitness, assembly_to_user_id)
+            with open(self.paths.ani_fitness_json, 'w') as fh:
+                fh.write(json.dumps(ani_fitness))
+        ani_phenotype = None
+        if not df_ani_phenotype is None:
+            ani_phenotype = self.ani_translate_phenotype(df_ani_phenotype, assembly_to_user_id)
+            with open(self.paths.ani_phenotypes_json, 'w') as fh:
+                fh.write(json.dumps(ani_phenotype))
         with open(self.paths.ani_kepangenomes_json, 'w') as fh:
             fh.write(json.dumps(ani_clades))
-        with open(self.paths.ani_fitness_json, 'w') as fh:
-            fh.write(json.dumps(ani_fitness))
-        with open(self.paths.ani_phenotypes_json, 'w') as fh:
-            fh.write(json.dumps(ani_phenotype))
-
+        
         return user_genome_files, user_to_clade, ani_clades, ani_fitness, ani_phenotype

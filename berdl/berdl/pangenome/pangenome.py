@@ -51,7 +51,10 @@ class BERDLPangenome:
                     data['feature_id'].append(feature.id)
                     data['cluster_id'].append(d_gene_to_cluster[feature.id])
                     data['protein_hash'].append(protein_h)
-                    data['mmseqs_rep_hash'].append(m_to_r[protein_h])
+                    if protein_h in m_to_r:
+                        data['mmseqs_rep_hash'].append(m_to_r[protein_h])
+                    else:
+                        data['mmseqs_rep_hash'].append(None)
         df = pl.DataFrame(data)
         df.write_parquet(self.paths.root / 'pangenome_cluster_with_mmseqs.parquet')
 
