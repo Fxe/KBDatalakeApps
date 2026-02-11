@@ -11,6 +11,8 @@ class DatalakeTableBuilder:
     def __init__(self, root_genome: GenomePaths, root_pangenome: PathsPangenome):
         self.root_genome = root_genome
         self.root_pangenome = root_pangenome
+        self.include_dna_sequence = False
+        self.include_protein_sequence = False
 
     def build(self):
         #self.build_genome_table()
@@ -90,20 +92,25 @@ class DatalakeTableBuilder:
                     genome TEXT NOT NULL,
                     contig TEXT NOT NULL,
                     feature_id TEXT NOT NULL,
+                    aliases TEXT,
                     length INTEGER NOT NULL,
                     start INTEGER NOT NULL,
                     end INTEGER NOT NULL,
                     strand TEXT NOT NULL,
                     type TEXT NOT NULL,
-                    sequence TEXT NOT NULL,
-                    sequence_hash TEXT NOT NULL,
-                    pangenome_cluster TEXT NOT NULL,
-                    pangenome_is_core INTEGER NOT NULL,
+                    dna_sequence TEXT NOT NULL,
+                    protein_sequence TEXT NOT NULL,
+                    protein_sequence_hash TEXT NOT NULL,
+                    pangenome_cluster TEXT,
+                    pangenome_is_core INTEGER,
                     PRIMARY KEY (genome, contig, feature_id)
                 );
                 """)
 
-
+        # genome_tsv
+        path_genome_tsv = Path('./genome_tsv')
+        
+        #
 
         conn.commit()
         conn.close()

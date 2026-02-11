@@ -376,7 +376,7 @@ Author: chenry
                         print(f'nope {ex}')
                     """
 
-        print('Task set barrier')
+        print('Task barrier input genome annotation')
         for t in tasks:
             print(f'await for {t.args} {t.status}')
             t.wait()
