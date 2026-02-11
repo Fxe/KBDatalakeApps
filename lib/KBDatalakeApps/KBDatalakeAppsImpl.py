@@ -474,8 +474,8 @@ Author: chenry
         # Safe to read and export data
         file_links = []
         # Zip up shared_folder contents and upload to Shock for downloadable report link
+        shared_folder_path = Path(self.shared_folder)
         if export_all_data:
-            shared_folder_path = Path(self.shared_folder)
             self.logger.info(f"Zipping shared folder contents: {shared_folder_path}")
             archive_shock_info = self.dfu.file_to_shock({
                 'file_path': str(shared_folder_path),
@@ -491,7 +491,7 @@ Author: chenry
             })
         if export_genome_data:
             archive_shock_id = self.dfu.file_to_shock({
-                'file_path': str(self.shared_folder) + '/genome',
+                'file_path': str(shared_folder_path / 'genome'),
                 'pack': 'zip'
             })['shock_id']
             file_links.append({
