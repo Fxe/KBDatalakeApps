@@ -525,12 +525,15 @@ Author: chenry
             })
         if export_databases:
             for folder_pangenome in os.listdir(str(path_pangenome)):
+                path_mmseqs_tmp = path_pangenome / folder_pangenome / 'master_mmseqs2' / 'mmseqs2_tmp'
+                if os.path.exists(path_mmseqs_tmp):
+                    shutil.rmtree(path_mmseqs_tmp)
                 if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
-                    path_db = path_pangenome / folder_pangenome / 'db.sqlite'
+                    path_db = (path_pangenome / folder_pangenome / 'db.sqlite').resolve()
                     if path_db.exists():
-                        print(f'found db for {folder_pangenome}! file_to_shock')
+                        print(f'found db for {folder_pangenome}! file_to_shock: {path_db}')
                         archive_shock_id = self.dfu.file_to_shock({
-                            'file_path': str(path_db),
+                            'file_path': str(shared_folder_path / 'pangenome' / folder_pangenome / 'db.sqlite'),
                             'pack': 'zip'
                         })['shock_id']
                         file_links.append({
