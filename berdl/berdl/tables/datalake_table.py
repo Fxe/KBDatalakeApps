@@ -147,6 +147,23 @@ class DatalakeTableBuilder:
         conn.close()
 
     def build_pangenome_member_feature_parquet(self):
+        data = {
+            'genome': [],
+            'contig': [],
+            'feature_id': [],
+            #'aliases': [],
+            'length': [],
+            'start': [],
+            'end': [],
+            'strand': [],
+            'type': [],
+            #'dna_sequence': [],
+            'protein_sequence': [],
+            'protein_sequence_hash': [],
+            'cluster': [],
+            'is_core': [],
+        }
+
         genome_id_to_ontologies = {}
         all_ontology_terms = set()
         path_genome_dir = self.root_pangenome.genome_dir
@@ -158,7 +175,48 @@ class DatalakeTableBuilder:
                 for o in feature_ontology_terms.values():
                     all_ontology_terms |= set(o)
                 genome_id_to_ontologies[genome_id] = feature_ontology_terms
-        pass
+
+        print(f'found these ontology terms: {all_ontology_terms}')
+        for term in all_ontology_terms:
+            data[f'ontology_{term}'] = []
+
+        df_clusters = pl.read_parquet(self.root_pangenome / 'pangenome_cluster_with_mmseqs.parquet')
+        for f in os.listdir(str(path_genome_dir)):
+            if f.endswith('.faa'):
+                path_genome_faa = path_genome_dir / f
+                genome_id = path_genome_faa.name[:-4]  # strip .faa
+                genome = MSGenome.from_fasta(str(path_genome_faa))
+                feature_ontology_terms = genome_id_to_ontologies.get(genome_id, {})
+
+                d_feature_cluster = {row['feature_id']: row for row in df_clusters.filter(
+                    pl.col("genome_id") == genome_id).rows(named=True)}
+
+                for feature in genome.features:
+                    feature_id = feature.id
+                    protein_sequence = feature.seq if self.include_protein_sequence else None
+                    protein_hash = ProteinSequence(feature.seq) if feature.seq else None
+
+                    data['genome'].append(genome_id)
+                    #data['contig'].append(contig)
+                    data['feature_id'].append(feature_id)
+                    #data['aliases'].append(aliases)
+                    #data['length'].append(feature_len)
+                    #data['start'].append(start)
+                    #data['end'].append(end)
+                    #data['strand'].append(strand)
+                    data['type'].append('CDS')
+                    #data['dna_sequence'].append(dna_sequence)
+                    data['protein_sequence'].append(protein_sequence)
+                    data['protein_sequence_hash'].append(protein_hash)
+                    data['cluster'].append(d_feature_cluster.get(feature_id, {}).get('cluster_id'))
+                    data['is_core'].append(d_feature_cluster.get(feature_id, {}).get('is_core'))
+
+                    for term in all_ontology_terms:
+                        values = feature_ontology_terms.get(feature_id, {}).get(term)
+                        if values is None:
+                            data[f'ontology_{term}'].append(None)
+                        else:
+                            data[f'ontology_{term}'].append('; '.join(values))
 
     def build_user_genome_feature_parquet(self):
         input_genome_dir = Path(self.root_genome.genome_dir)
