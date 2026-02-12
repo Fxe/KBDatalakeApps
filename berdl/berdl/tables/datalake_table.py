@@ -182,7 +182,10 @@ class DatalakeTableBuilder:
         for term in all_ontology_terms:
             data[f'ontology_{term}'] = []
 
-        df_clusters = pl.read_parquet(self.root_pangenome.root / 'pangenome_cluster_with_mmseqs.parquet')
+        df_clusters = None
+        path_pangenome_cluster = self.root_pangenome.root / 'pangenome_cluster_with_mmseqs.parquet'
+        if path_pangenome_cluster.exists():
+            df_clusters = pl.read_parquet(path_pangenome_cluster)
         for f in os.listdir(str(path_genome_dir)):
             if f.endswith('.faa'):
                 path_genome_faa = path_genome_dir / f
@@ -190,8 +193,10 @@ class DatalakeTableBuilder:
                 genome = MSGenome.from_fasta(str(path_genome_faa))
                 feature_ontology_terms = genome_id_to_ontologies.get(genome_id, {})
 
-                d_feature_cluster = {row['feature_id']: row for row in df_clusters.filter(
-                    pl.col("genome_id") == genome_id).rows(named=True)}
+                d_feature_cluster = {}
+                if df_clusters is not None:
+                    d_feature_cluster = {row['feature_id']: row for row in df_clusters.filter(
+                        pl.col("genome_id") == genome_id).rows(named=True)}
 
                 for feature in genome.features:
                     feature_id = feature.id
