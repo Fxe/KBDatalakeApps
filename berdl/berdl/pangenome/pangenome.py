@@ -1,3 +1,4 @@
+import json
 import subprocess
 import polars as pl
 from pathlib import Path
@@ -16,6 +17,50 @@ class BERDLPangenome:
         self.pg = query_pg  # pan-genome query api
         self.query_g = query_g
         self.paths = paths.ensure()
+
+    def write_master_faa(self, members: dict, selected_clade_member_id: str):
+        u_proteins = {}
+        for k, g in members.items():
+            print(k, len(g.features))
+            for feature in g.features:
+                _parts = feature.description.split(' ')
+                h = _parts[4]
+                u_proteins[h] = MSFeature(h, feature.seq)
+
+        print(f"write master faa")
+        genome_master_faa = MSGenome()
+        genome_master_faa.add_features(list(u_proteins.values()))
+        genome_master_faa.to_fasta(str(self.paths.out_master_faa_pangenome_members))
+
+        #  collect user genome and add to u_proteins
+        with open(self.paths.genome_prep_clade_data, 'r') as fh:
+            clade_assignment = json.load(fh)
+
+        user_genomes = {k for k, v in clade_assignment.items() if v == selected_clade_member_id}
+        for g in user_genomes:
+            genome_path = self.paths.genome_prep_genome_folder / f'user_{g}.faa'
+            genome_user = MSGenome.from_fasta(str(genome_path.resolve()))
+            for feature in genome_user.features:
+                protein = ProteinSequence(feature.seq)
+                h = protein.hash_value
+                u_proteins[h] = MSFeature(h, feature.seq)
+
+        #  collect phenotype and fitness
+        genome_master_faa_fitness = MSGenome.from_fasta(str(self.paths.ref_master_faa_protein_fitness))
+        for feature in genome_master_faa_fitness.features:
+            if feature.id not in u_proteins:
+                u_proteins[feature.id] = MSFeature(feature.id, feature.seq)
+        genome_master_faa_phenotype = MSGenome.from_fasta(str(self.paths.ref_master_faa_protein_phenotype))
+        for feature in genome_master_faa_phenotype.features:
+            if feature.id not in u_proteins:
+                u_proteins[feature.id] = MSFeature(feature.id, feature.seq)
+
+        # rebuild master faa genome with proteins from
+        #  user / pangenome / fitness / phenotypes
+        print(f"write user / pangenome / fitness / phenotypes master faa")
+        genome_master_faa = MSGenome()
+        genome_master_faa.add_features(list(u_proteins.values()))
+        genome_master_faa.to_fasta(str(self.paths.out_master_faa))
 
     @staticmethod
     def read_cluster_tsv(file_mmseqs_clusters):
@@ -135,50 +180,8 @@ class BERDLPangenome:
                     genome_contigs.to_fasta(filename_fna)
 
         # build master protein user_genome + pangenome
-
-        u_proteins = {}
-        for k, g in members.items():
-            print(k, len(g.features))
-            for feature in g.features:
-                _parts = feature.description.split(' ')
-                h = _parts[4]
-                u_proteins[h] = MSFeature(h, feature.seq)
-
-        print(f"write {clade_id} master faa")
-        genome_master_faa = MSGenome()
-        genome_master_faa.add_features(list(u_proteins.values()))
-        genome_master_faa.to_fasta(str(self.paths.out_master_faa_pangenome_members))
-
-        #  collect user genome and add to u_proteins
-        import json
-        with open(self.paths.genome_prep_clade_data, 'r') as fh:
-            clade_assignment = json.load(fh)
-
-        user_genomes = {k for k, v in clade_assignment.items() if v == selected_clade_member_id}
-        for g in user_genomes:
-            genome_path = self.paths.genome_prep_genome_folder / f'user_{g}.faa'
-            genome_user = MSGenome.from_fasta(str(genome_path.resolve()))
-            for feature in genome_user.features:
-                protein = ProteinSequence(feature.seq)
-                h = protein.hash_value
-                u_proteins[h] = MSFeature(h, feature.seq)
-
-        #  collect phenotype and fitness
-        genome_master_faa_fitness = MSGenome.from_fasta(str(self.paths.ref_master_faa_protein_fitness))
-        for feature in genome_master_faa_fitness.features:
-            if feature.id not in u_proteins:
-                u_proteins[feature.id] = MSFeature(feature.id, feature.seq)
-        genome_master_faa_phenotype = MSGenome.from_fasta(str(self.paths.ref_master_faa_protein_phenotype))
-        for feature in genome_master_faa_phenotype.features:
-            if feature.id not in u_proteins:
-                u_proteins[feature.id] = MSFeature(feature.id, feature.seq)
-
-        # rebuild master faa genome with proteins from
-        #  user / pangenome / fitness / phenotypes
-        print(f"write {clade_id} user / pangenome / fitness / phenotypes master faa")
-        genome_master_faa = MSGenome()
-        genome_master_faa.add_features(list(u_proteins.values()))
-        genome_master_faa.to_fasta(str(self.paths.out_master_faa))
+        if not self.paths.out_master_faa_pangenome_members.exists() or not self.paths.out_master_faa.exists():
+            self.write_master_faa(members, selected_clade_member_id)
 
         filename_clusters = self.paths.out_mmseqs_dir / f'{self.paths.out_master_faa.name[:-4]}_cluster.tsv'
         # run mmseqs
@@ -193,18 +196,17 @@ class BERDLPangenome:
         if filename_clusters.exists():
             df_cluster = self.extend_gene_to_cluster(m_to_r, d_gene_to_cluster)
 
-
         with open(self.paths.genome_prep_clade_data, 'r') as fh:
             user_to_clade = {f'user_{k}.faa' for k, v in json.load(fh).items() if v == selected_clade_member_id}
         # map user_genome_to_pangenomes
-        if df_cluster:
+        if df_cluster is not None:
             df_cluster_attr = clade_gene_clusters.select([
                 'gene_cluster_id',
                 pl.col("is_core").cast(pl.Int64),
                 pl.col("is_singleton").cast(pl.Int64)
             ])
             pangenome_cluster_attr = {
-                row['gene_cluster_id']:{
+                row['gene_cluster_id']: {
                     'is_core': row['is_core'],
                     'is_singleton': row['is_singleton']
                 } for row in df_cluster_attr.rows(named=True)}
@@ -242,7 +244,8 @@ class BERDLPangenome:
                             fh.write(f'{feature.id}\t{cluster}\t{is_core}\n')
                         elif type(cluster) == dict:
                             pangenome_cluster = '; '.join(['{}:{}'.format(k, v) for k, v in cluster.items()])
-                            is_core = all([pangenome_cluster_attr.get(c, {}).get('is_core') for c in cluster])
+                            bool_is_core = all([pangenome_cluster_attr.get(c, {}).get('is_core') for c in cluster])
+                            is_core = 1 if bool_is_core else 0
                             fh.write(f'{feature.id}\t{pangenome_cluster}\t{is_core}\n')
                 print(f'{path_genome_faa} computing genome pangenome profile: {path_genome_pangenome_profile} DONE!')
 

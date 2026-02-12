@@ -146,6 +146,20 @@ class DatalakeTableBuilder:
         conn.commit()
         conn.close()
 
+    def build_pangenome_member_feature_parquet(self):
+        genome_id_to_ontologies = {}
+        all_ontology_terms = set()
+        path_genome_dir = self.root_pangenome.genome_dir
+        for f in os.listdir(str(path_genome_dir)):
+            if f.endswith('.faa'):
+                path_genome_faa = path_genome_dir / f
+                genome_id = path_genome_faa.name[:-4]  # strip .faa
+                feature_ontology_terms = self.collect_annotation(genome_id, path_genome_dir)
+                for o in feature_ontology_terms.values():
+                    all_ontology_terms |= set(o)
+                genome_id_to_ontologies[genome_id] = feature_ontology_terms
+        pass
+
     def build_user_genome_feature_parquet(self):
         input_genome_dir = Path(self.root_genome.genome_dir)
         data = {
@@ -188,7 +202,14 @@ class DatalakeTableBuilder:
                 path_genome_faa = input_genome_dir / f
                 genome_id = path_genome_faa.name[5:-4]  # strip user_<genome_id>.faa
                 path_genome_tsv = input_genome_dir / f'{genome_id}_genome.tsv'
+                path_genome_pangenome_profile = input_genome_dir / f'{genome_id}_pangenome_profile.tsv'
                 if path_genome_tsv.exists():
+                    d_pangenome_profile = {}
+                    if path_genome_pangenome_profile.exists():
+                        d_pangenome_profile = {row['feature_id']: row for row in
+                                               pl.read_csv(path_genome_pangenome_profile, separator='\t').rows(
+                                                   named=True)}
+
                     df_genome_tsv = pl.read_csv(path_genome_tsv, separator='\t')
                     feature_ontology_terms = genome_id_to_ontologies[genome_id]
                     for row in df_genome_tsv.rows(named=True):
@@ -223,8 +244,11 @@ class DatalakeTableBuilder:
                         data['dna_sequence'].append(dna_sequence)
                         data['protein_sequence'].append(protein_sequence)
                         data['protein_sequence_hash'].append(protein_hash)
-                        data['pangenome_cluster'].append(None)
-                        data['pangenome_is_core'].append(None)
+                        data['pangenome_cluster'].append(
+                            d_pangenome_profile.get('feature_id', {}).get('pangenome_cluster'))
+                        data['pangenome_is_core'].append(
+                            d_pangenome_profile.get('feature_id', {}).get('is_core')
+                        )
                         for term in all_ontology_terms:
                             values = feature_ontology_terms.get(feature_id, {}).get(term)
                             if values is None:
