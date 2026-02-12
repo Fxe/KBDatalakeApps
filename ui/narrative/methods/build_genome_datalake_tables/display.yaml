@@ -102,6 +102,14 @@ parameters:
         long-hint: |
             x
 
+    export_databases:
+        ui-name: |
+            Export Database Products
+        short-hint: |
+            Export the compiled sqlite database
+        long-hint: |
+            x
+
     export_all_content:
         ui-name: |
             Expert entire workdir content

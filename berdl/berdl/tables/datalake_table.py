@@ -32,9 +32,11 @@ class DatalakeTableBuilder:
 
     def build(self):
         #self.build_genome_table()
+        self.build_ani_table()
         df_user_features = self.build_user_genome_feature_parquet()
         self.build_user_genome_features_table(df_user_features)
-        self.build_ani_table()
+        df_pangenome_features = self.build_pangenome_member_feature_parquet()
+
         #self.build_user_genome_features_table()
         #self.build_pangenome_genome_features_table()
          #self.build_phenotype_kegg_table()
@@ -180,7 +182,7 @@ class DatalakeTableBuilder:
         for term in all_ontology_terms:
             data[f'ontology_{term}'] = []
 
-        df_clusters = pl.read_parquet(self.root_pangenome / 'pangenome_cluster_with_mmseqs.parquet')
+        df_clusters = pl.read_parquet(self.root_pangenome.root / 'pangenome_cluster_with_mmseqs.parquet')
         for f in os.listdir(str(path_genome_dir)):
             if f.endswith('.faa'):
                 path_genome_faa = path_genome_dir / f
@@ -200,7 +202,7 @@ class DatalakeTableBuilder:
                     strand = _parts[3]
                     feature_type = _parts[4]
                     protein_sequence = feature.seq if self.include_protein_sequence else None
-                    protein_hash = ProteinSequence(feature.seq) if feature.seq else None
+                    protein_hash = ProteinSequence(feature.seq).hash_value if feature.seq else None
 
                     data['genome'].append(genome_id)
                     data['contig'].append(contig_id)
@@ -355,30 +357,34 @@ class DatalakeTableBuilder:
         conn.commit()
         conn.close()
 
-    def build_pangenome_genome_features_table(self):
+    def build_pangenome_genome_features_table(self, df):
         conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
         cur = conn.cursor()
-        cur.execute("""
-                CREATE TABLE IF NOT EXISTS pangenome_feature (
+        cur.execute("DROP TABLE IF EXISTS pangenome_feature;")
+        sql_create_table = """
+        CREATE TABLE IF NOT EXISTS pangenome_feature (
                     genome TEXT NOT NULL,
                     contig TEXT NOT NULL,
                     feature_id TEXT NOT NULL,
-                    length INTEGER NOT NULL,
                     start INTEGER NOT NULL,
                     end INTEGER NOT NULL,
                     strand TEXT NOT NULL,
                     type TEXT NOT NULL,
-                    sequence TEXT NOT NULL,
-                    sequence_hash TEXT NOT NULL,
-                    pangenome_cluster TEXT NOT NULL,
-                    pangenome_is_core INTEGER NOT NULL,
-                    PRIMARY KEY (genome, contig, feature_id)
-                );
-                """)
+                    protein_sequence TEXT,
+                    protein_sequence_hash TEXT,
+                    cluster TEXT NOT NULL,
+                    is_core INTEGER NOT NULL,
+        """
+        ontology_cols = {col for col in df.columns if col.startswith('ontology_')}
+        for col in ontology_cols:
+            sql_create_table += f"{col} TEXT,\n"
+        sql_create_table += "PRIMARY KEY (genome, contig, feature_id));"
+        cur.execute(sql_create_table)
 
-        # read genome member list
-        # genome = MSGenome.from_fasta(fffff)
-        pass
+        df.to_pandas().to_sql("pangenome_feature", conn, if_exists="append", index=False)
+
+        conn.commit()
+        conn.close()
 
     def build_phenotype_kegg_table(self):
         pass

@@ -278,6 +278,7 @@ Author: chenry
         skip_modeling_pipeline = params['skip_modeling_pipeline'] == 1
         export_all_data = params['export_all_content'] == 1
         export_genome_data = params['export_genome_data'] == 1
+        export_databases = params['export_databases'] == 1
 
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
@@ -522,6 +523,22 @@ Author: chenry
                 'label': 'Input Genomes Data',
                 'description': 'Input Genomes with annotation and model files'
             })
+        if export_databases:
+            for folder_pangenome in os.listdir(str(path_pangenome)):
+                if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
+                    path_db = path_pangenome / folder_pangenome / 'db.sqlite'
+                    if path_db.exists():
+                        print(f'found db for {folder_pangenome}! file_to_shock')
+                        archive_shock_id = self.dfu.file_to_shock({
+                            'file_path': str(path_db),
+                            'pack': 'zip'
+                        })['shock_id']
+                        file_links.append({
+                            'shock_id': archive_shock_id,
+                            'name': f'{folder_pangenome}.zip',
+                            'label': f'{folder_pangenome} database',
+                            'description': f'{folder_pangenome} clade database'
+                        })
 
         #saved_object_info = self.kbase_api.save_object('fake_output',
         #                           params['workspace_name'],

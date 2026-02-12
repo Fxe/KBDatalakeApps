@@ -78,7 +78,7 @@ class BERDLPangenome:
         return r_to_m, m_to_r
 
     def extend_gene_to_cluster(self,  m_to_r, d_gene_to_cluster, df_cluster_attr):
-        cluster_core_flag = {row['gene_cluster_id']:row['is_core'] for row in df_cluster_attr.rows(named=True)}
+        cluster_core_flag = {row['gene_cluster_id']: row['is_core'] for row in df_cluster_attr.rows(named=True)}
         clade_members = pl.read_csv(self.paths.out_members_tsv, separator='\t')
         data = {
             'genome_id': [],
@@ -94,11 +94,12 @@ class BERDLPangenome:
                 if feature.seq:
                     protein = ProteinSequence(feature.seq)
                     protein_h = protein.hash_value
+                    cluster_id = d_gene_to_cluster[feature.id]
                     data['genome_id'].append(member_id)
                     data['feature_id'].append(feature.id)
-                    data['cluster_id'].append(d_gene_to_cluster[feature.id])
+                    data['cluster_id'].append(cluster_id)
                     data['protein_hash'].append(protein_h)
-                    data['is_core'].append(cluster_core_flag.get(feature.id))
+                    data['is_core'].append(cluster_core_flag.get(cluster_id))
                     if protein_h in m_to_r:
                         data['mmseqs_rep_hash'].append(m_to_r[protein_h])
                     else:
