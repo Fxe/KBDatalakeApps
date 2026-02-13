@@ -33,16 +33,17 @@ def _join_set(s):
 def _parse_description(desc):
     """Parse the description string produced by QueryGenomeLocal.get_genome_features().
 
-    Format: '{contig_name} {start} {end} {feature_type} {protein_hash} {cdm_contig_id} {cdm_feature_id} {cdm_protein_id}'
+    Format: '{contig_name} {start} {end} {strand} {feature_type} {protein_hash} {cdm_contig_id} {cdm_feature_id} {cdm_protein_id}'
     """
     parts = desc.split()
-    if len(parts) >= 5:
+    if len(parts) >= 6:
         return {
             "contig_id": parts[0],
             "start": parts[1],
             "end": parts[2],
-            "feature_type": parts[3],
-            "protein_hash": parts[4],
+            "strand": parts[3],
+            "feature_type": parts[4],
+            "protein_hash": parts[5],
         }
     return {}
 
@@ -83,6 +84,7 @@ def enrich_genome(member_id, query_g, query_o, genome_dir, rast_dict=None):
             "contig_id": meta.get("contig_id", ""),
             "start": meta.get("start", ""),
             "end": meta.get("end", ""),
+            "strand": meta.get("strand", ""),
             "feature_type": meta.get("feature_type", ""),
             "protein_hash": meta.get("protein_hash", ""),
             "length": len(feature.seq) * 3 if feature.seq else 0,
@@ -104,7 +106,7 @@ def enrich_genome(member_id, query_g, query_o, genome_dir, rast_dict=None):
 
 
 TSV_COLUMNS = [
-    "feature_id", "contig_id", "start", "end", "feature_type",
+    "feature_id", "contig_id", "start", "end", "strand", "feature_type",
     "protein_hash", "length", "sequence",
     "rast_function", "bakta_function",
     "cog", "ec", "go", "ko", "pfam", "so",
