@@ -108,7 +108,7 @@ def run_kofam(client_kofam, genome_file_input, output_file):
     annotation = parse_kofam(result)
     print('write: ', str(output_file))
     with open(str(output_file), 'w') as fh:
-        fh.write('feature_id\tKO\n')
+        fh.write('feature_id\tKEGG\n')
         for feature_id, ko_set in annotation.items():
             ko_str = '; '.join(ko_set)
             fh.write(f'{feature_id}\t{ko_str}\n')
@@ -205,13 +205,36 @@ def test_annotation(client_kofam, client_bakta, client_psortb, client_rast):
         start_time = time.perf_counter()
         l_sequences = []
         l_feature_id = []
+        proteins = {
+            'b0001': 'MKRISTTITTTITITTGNGAG',
+            'b0002': """
+            MRVLKFGGTSVANAERFLRVADILESNARQGQVATVLSAPAKITNHLVAMIEKTISGQDALPNISDAERIFAELLTGLAA
+AQPGFPLAQLKTFVDQEFAQIKHVLHGISLLGQCPDSINAALICRGEKMSIAIMAGVLEARGHNVTVIDPVEKLLAVGHY
+LESTVDIAESTRRIAASRIPADHMVLMAGFTAGNEKGELVVLGRNGSDYSAAVLAACLRADCCEIWTDVDGVYTCDPRQV
+PDARLLKSMSYQEAMELSYFGAKVLHPRTITPIAQFQIPCLIKNTGNPQAPGTLIGASRDEDELPVKGISNLNNMAMFSV
+SGPGMKGMVGMAARVFAAMSRARISVVLITQSSSEYSISFCVPQSDCVRAERAMQEEFYLELKEGLLEPLAVTERLAIIS
+VVGDGMRTLRGISAKFFAALARANINIVAIAQGSSERSISVVVNNDDATTGVRVTHQMLFNTDQVIEVFVIGVGGVGGAL
+LEQLKRQQSWLKNKHIDLRVCGVANSKALLTNVHGLNLENWQEELAQAKEPFNLGRLIRLVKEYHLLNPVIVDCTSSQAV
+ADQYADFLREGFHVVTPNKKANTSSMDYYHQLRYAAEKSRRKFLYDTNVGAGLPVIENLQNLLNAGDELMKFSGILSGSL
+SYIFGKLDEGMSFSEATTLAREMGYTEPDPRDDLSGMDVARKLLILARETGRELELADIEIEPVLPAEFNAEGDVAAFMA
+NLSQLDDLFAARVAKARDEGKVLRYVGNIDEDGVCRVKIAEVDGNDPLFKVKNGENALAFYSHYYQPLPLVLRGYGAGND
+VTAAGVFADLLRTLSWKLGV
+            """,
+            'b0003': """
+            MVKVYAPASSANMSVGFDVLGAAVTPVDGALLGDVVTVEAAETFSLNNLGRFADKLPSEPRENIVYQCWERFCQELGKQI
+PVAMTLEKNMPIGSGLGSSACSVVAALMAMNEHCGKPLNDTRLLALMGELEGRISGSIHYDNVAPCFLGGMQLMIEENDI
+ISQQVPGFDEWLWVLAYPGIKVSTAEARAILPAQYRRQDCIAHGRHLAGFIHACYSRQPELAAKLMKDVIAEPYRERLLP
+GFRQARQAVAEIGAVASGISGSGPTLFALCDKPETAQRVADWLGKNYLQNQEGFVHICRLDTAGARVLEN
+            """,
+        }
         for i, s in proteins.items():
-            l_sequences.append(s)
+            l_sequences.append(''.join(s.split()))
             l_feature_id.append(i)
         result = client_rast.annotate_proteins({'proteins': l_sequences})
         end_time = time.perf_counter()
         print(f"Execution time: {end_time - start_time} seconds")
         print(f'received results of type {type(result)} and size {len(result)}')
+        print(l_feature_id)
         print(result)
         annotation = {}
         for i in range(len(l_feature_id)):

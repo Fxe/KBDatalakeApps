@@ -144,6 +144,26 @@ Author: chenry
             raise RuntimeError(
                 f"pangenome pipeline failed with exit code {ret}"
             )
+        
+    @staticmethod
+    def run_annotation_pipeline(filename_faa):
+        cmd = ["/kb/module/scripts/run_annotation.sh", str(filename_faa)]
+
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=None,  # inherit parent stdout
+            stderr=None,  # inherit parent stderr
+            env=env
+        )
+
+        ret = process.wait()
+        if ret != 0:
+            raise RuntimeError(
+                f"annotation pipeline failed with exit code {ret}"
+            )
 
     @staticmethod
     def run_build_table(input_file, selected_member_id):
@@ -258,6 +278,7 @@ Author: chenry
         skip_modeling_pipeline = params['skip_modeling_pipeline'] == 1
         export_all_data = params['export_all_content'] == 1
         export_genome_data = params['export_genome_data'] == 1
+        export_databases = params['export_databases'] == 1
 
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
@@ -295,8 +316,15 @@ Author: chenry
         suffix = params.get('suffix', ctx['token'])
         save_models = params.get('save_models', 0)
 
+        genome_refs = [input_refs[0]]  # FIXME: this is not correct
+
         if not skip_genome_pipeline:
             self.run_genome_pipeline(input_params.resolve())
+            for genome_ref in genome_refs:
+                info = self.util.get_object_info(genome_ref)
+                path_genome_tsv = Path(self.shared_folder) / "genome" / f'user_{info[1]}_genome.tsv'
+                print(f'create genome tsv: {path_genome_tsv} for {genome_ref}')
+                self.util.run_user_genome_to_tsv(genome_ref, str(path_genome_tsv))
         else:
             print('skip genome pipeline')
 
@@ -348,6 +376,8 @@ Author: chenry
                             tasks_pangeome.append(executor.run_task(task_rast,
                                                                     path_pangenome_members / _f,
                                                                     self.rast_client))
+                            tasks_pangeome.append(executor.run_task(self.run_annotation_pipeline,
+                                                                    path_pangenome_members / _f))
 
 
 
@@ -376,7 +406,7 @@ Author: chenry
                         print(f'nope {ex}')
                     """
 
-        print('Task set barrier')
+        print('Task barrier input genome annotation')
         for t in tasks:
             print(f'await for {t.args} {t.status}')
             t.wait()
@@ -474,8 +504,8 @@ Author: chenry
         # Safe to read and export data
         file_links = []
         # Zip up shared_folder contents and upload to Shock for downloadable report link
+        shared_folder_path = Path(self.shared_folder)
         if export_all_data:
-            shared_folder_path = Path(self.shared_folder)
             self.logger.info(f"Zipping shared folder contents: {shared_folder_path}")
             archive_shock_info = self.dfu.file_to_shock({
                 'file_path': str(shared_folder_path),
@@ -491,7 +521,7 @@ Author: chenry
             })
         if export_genome_data:
             archive_shock_id = self.dfu.file_to_shock({
-                'file_path': str(self.shared_folder) + '/genome',
+                'file_path': str(shared_folder_path / 'genome'),
                 'pack': 'zip'
             })['shock_id']
             file_links.append({
@@ -500,6 +530,25 @@ Author: chenry
                 'label': 'Input Genomes Data',
                 'description': 'Input Genomes with annotation and model files'
             })
+        if export_databases:
+            for folder_pangenome in os.listdir(str(path_pangenome)):
+                path_mmseqs_tmp = path_pangenome / folder_pangenome / 'master_mmseqs2' / 'mmseqs2_tmp'
+                if os.path.exists(path_mmseqs_tmp):
+                    shutil.rmtree(path_mmseqs_tmp)
+                if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
+                    path_db = (path_pangenome / folder_pangenome / 'db.sqlite').resolve()
+                    if path_db.exists():
+                        print(f'found db for {folder_pangenome}! file_to_shock: {path_db}')
+                        archive_shock_id = self.dfu.file_to_shock({
+                            'file_path': str(path_db),
+                            'pack': 'zip'
+                        })['shock_id']
+                        file_links.append({
+                            'shock_id': archive_shock_id,
+                            'name': f'{folder_pangenome}.zip',
+                            'label': f'{folder_pangenome} database',
+                            'description': f'{folder_pangenome} clade database'
+                        })
 
         #saved_object_info = self.kbase_api.save_object('fake_output',
         #                           params['workspace_name'],

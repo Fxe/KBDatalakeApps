@@ -52,7 +52,7 @@ class QueryGenomeLocal(QueryGenomeABC):
             cdm_feat_ids = {o[0] for o in df.rows()}
 
             df_features = self.ldf_feature.filter(pl.col("feature_id").is_in(cdm_feat_ids)).select(
-                ["feature_id", "start", "end", "type"]).collect()
+                ["feature_id", "start", "end", "strand", "type"]).collect()
 
             df_feature_to_contig = self.ldf_contig_x_feature.filter(
                 pl.col("feature_id").is_in(cdm_feat_ids)).collect()
@@ -83,6 +83,7 @@ class QueryGenomeLocal(QueryGenomeABC):
             for row in df_features.rows(named=True):
                 start = row['start']
                 end = row['end']
+                strand = row['strand']
                 feature_type = row['type']
                 cdm_feature_id = row['feature_id']
                 cdm_protein_id = d_feature_to_protein[cdm_feature_id]
@@ -92,7 +93,7 @@ class QueryGenomeLocal(QueryGenomeABC):
                 cdm_contig_id = d_feature_to_contig[cdm_feature_id]
                 contig_name = d_cntg_id_to_name[cdm_contig_id]
                 feature_to_kpg_id = d_names.get(cdm_feature_id, cdm_feature_id)
-                desc = f'{contig_name} {start} {end} {feature_type} {protein_hash} {cdm_contig_id} {cdm_feature_id} {cdm_protein_id}'
+                desc = f'{contig_name} {start} {end} {strand} {feature_type} {protein_hash} {cdm_contig_id} {cdm_feature_id} {cdm_protein_id}'
                 genome_feature = MSFeature(feature_to_kpg_id, sequence, description=desc)
                 features[genome_feature.id] = genome_feature
 
