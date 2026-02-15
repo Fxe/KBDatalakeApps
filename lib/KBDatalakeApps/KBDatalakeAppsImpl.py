@@ -190,7 +190,7 @@ Author: chenry
         cmd = ["/kb/module/scripts/run_model_pipeline.sh", str(input_file)]
 
         env = os.environ.copy()
-        env.pop("PYTHONPATH", None)
+        #env.pop("PYTHONPATH", None)
 
         process = subprocess.Popen(
             cmd,
