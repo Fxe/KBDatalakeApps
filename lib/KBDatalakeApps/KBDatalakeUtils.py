@@ -1390,7 +1390,271 @@ def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenot
     return {"success": True, "genome_id": genome_id}
 
 
-def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbversion):
+def run_model_reconstruction2(genome_id: str, genome: MSGenome, output_filename, classifier_dir, kb_version):
+    worker_util = MSReconstructionUtils(kbversion=kb_version)
+
+    genome_classifier = worker_util.get_classifier(classifier_dir)
+
+    # Build the model
+    current_output, mdlutl = worker_util.build_metabolic_model(
+        genome=genome,
+        genome_classifier=genome_classifier,
+        model_id=genome_id,
+        model_name=genome_id,
+        gs_template="auto",
+        atp_safe=True,
+        load_default_medias=True,
+        max_gapfilling=10,
+        gapfilling_delta=0,
+    )
+
+    if mdlutl is None:
+        return {
+            'success': False,
+            'error': f"Model build returned None: {current_output.get('Comments', ['Unknown']) if current_output else ['Unknown']}"
+        }
+
+    model = mdlutl.model
+
+    # Save model before gapfilling so it's available even if gapfilling fails
+    cobra.io.save_json_model(model, output_filename+"_cobra.json")
+
+    # Gapfill if media specified
+    gf_rxns = 0
+    growth = 'NA'
+    gapfill_media = worker_util.get_media("KBaseMedia/Carbon-Pyruvic-Acid")
+    gf_output, _, _, _ = worker_util.gapfill_metabolic_model(
+        mdlutl=mdlutl,
+        genome=genome,
+        media_objs=[gapfill_media],
+        templates=[model.template],
+        atp_safe=True,
+        objective='bio1',
+        minimum_objective=0.01,
+        gapfilling_mode="Sequential",
+    )
+    if gf_output is not None:
+        gf_rxns = gf_output.get('GS GF', 0)
+        growth = gf_output.get('Growth', 'Unknown')
+    else:
+        gf_output, _, _, _ = worker_util.gapfill_metabolic_model(
+            mdlutl=mdlutl,
+            genome=genome,
+            media_objs=[gapfill_media],
+            templates=[model.template],
+            atp_safe=False,
+            objective='bio1',
+            minimum_objective=0.01,
+            gapfilling_mode="Sequential",
+        )
+        if gf_output is not None:
+            gf_rxns = gf_output.get('GS GF', 0)
+            growth = gf_output.get('Growth', 'Unknown')
+        else:
+            print(f"  Warning: Gapfilling returned None for {genome_id}")
+
+    # Save model (re-save after gapfilling if it succeeded)
+    cobra.io.save_json_model(model, output_filename+"_cobra.json")
+
+    genome_class = current_output.get('Class', 'Unknown')
+    core_gf = current_output.get('Core GF', 0)
+
+    # Get minimal and rich media for analysis
+    minimal_media = gapfill_media  # Use the gapfill media as minimal
+    rich_media = worker_util.get_media("KBaseMedia/AuxoMedia")
+
+    # Collect gapfilled reactions by category
+    core_gf_rxns = []
+    minimal_gf_rxns = []
+    rich_gf_rxns = []
+
+    # Identify gapfilled reactions: no gene association and not
+    # biomass, exchange, demand, or sink reactions
+    all_gf_rxn_ids = {
+        rxn.id for rxn in model.reactions
+        if not rxn.gene_reaction_rule
+        and not any(rxn.id.startswith(p) for p in ('bio', 'EX', 'DM', 'SK'))
+    }
+
+    # Categorize using integrated gapfilling solutions from MSModelUtil
+    categorized = set()
+    if hasattr(mdlutl, 'integrated_gapfillings'):
+        for gf_entry in mdlutl.integrated_gapfillings:
+            media_obj = gf_entry.get('media', None)
+            media_id = media_obj.id if media_obj and hasattr(media_obj, 'id') else ''
+            rxn_ids = list(gf_entry.get('new', {}).keys()) + list(gf_entry.get('reversed', {}).keys())
+            is_core = 'atp' in media_id.lower()
+            for rxn_id in rxn_ids:
+                if rxn_id in all_gf_rxn_ids and rxn_id not in categorized:
+                    categorized.add(rxn_id)
+                    if is_core:
+                        core_gf_rxns.append(rxn_id)
+                    else:
+                        minimal_gf_rxns.append(rxn_id)
+
+    # Any gapfilled reactions not in integrated_gapfillings default to minimal
+    for rxn_id in sorted(all_gf_rxn_ids - categorized):
+        minimal_gf_rxns.append(rxn_id)
+
+    print(f"  Gapfilled reactions: {len(all_gf_rxn_ids)} total, {len(core_gf_rxns)} core, {len(minimal_gf_rxns)} minimal media")
+
+    # Run FVA in rich media to identify essential gapfilled reactions
+    all_gf_rxns = list(set(core_gf_rxns + minimal_gf_rxns))
+    if all_gf_rxns and rich_media:
+        mdlutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(rich_media)
+        try:
+            fva_result = cobra.flux_analysis.flux_variability_analysis(
+                model,
+                reaction_list=[model.reactions.get_by_id(rxn_id) for rxn_id in all_gf_rxns if rxn_id in model.reactions],
+                fraction_of_optimum=0.001
+            )
+            for rxn_id in all_gf_rxns:
+                if rxn_id in fva_result.index:
+                    min_flux = fva_result.loc[rxn_id, 'minimum']
+                    max_flux = fva_result.loc[rxn_id, 'maximum']
+                    # If flux bounds don't include zero, reaction is essential
+                    if min_flux > 1e-6 or max_flux < -1e-6:
+                        if rxn_id not in rich_gf_rxns:
+                            rich_gf_rxns.append(rxn_id)
+        except Exception as e:
+            print(f"Warning: Rich media FVA failed: {e}")
+
+    # Run pFBA and FVA analysis in minimal media
+    minimal_pfba_fluxes = {}
+    minimal_fva_classes = {}
+    mdlutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(minimal_media)
+    try:
+        # pFBA in minimal media
+        pfba_solution = cobra.flux_analysis.pfba(model)
+        if pfba_solution.status == 'optimal':
+            minimal_pfba_fluxes = {rxn.id: pfba_solution.fluxes[rxn.id] for rxn in model.reactions}
+
+        # FVA in minimal media for classification
+        fva_minimal = cobra.flux_analysis.flux_variability_analysis(model, fraction_of_optimum=0.001)
+        for rxn in model.reactions:
+            if rxn.id in fva_minimal.index:
+                min_f = fva_minimal.loc[rxn.id, 'minimum']
+                max_f = fva_minimal.loc[rxn.id, 'maximum']
+                if abs(min_f) < 1e-6 and abs(max_f) < 1e-6:
+                    minimal_fva_classes[rxn.id] = 'blocked'
+                elif min_f > 1e-6:
+                    minimal_fva_classes[rxn.id] = 'essential_forward'
+                elif max_f < -1e-6:
+                    minimal_fva_classes[rxn.id] = 'essential_reverse'
+                elif min_f < -1e-6 and max_f > 1e-6:
+                    minimal_fva_classes[rxn.id] = 'reversible'
+                elif max_f > 1e-6:
+                    minimal_fva_classes[rxn.id] = 'forward_only'
+                elif min_f < -1e-6:
+                    minimal_fva_classes[rxn.id] = 'reverse_only'
+                else:
+                    minimal_fva_classes[rxn.id] = 'variable'
+    except Exception as e:
+        print(f"Warning: Minimal media analysis failed: {e}")
+
+    # Run pFBA and FVA analysis in rich media
+    rich_pfba_fluxes = {}
+    rich_fva_classes = {}
+    if rich_media:
+        mdlutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(rich_media)
+        try:
+            # pFBA in rich media
+            pfba_solution = cobra.flux_analysis.pfba(model)
+            if pfba_solution.status == 'optimal':
+                rich_pfba_fluxes = {rxn.id: pfba_solution.fluxes[rxn.id] for rxn in model.reactions}
+
+            # FVA in rich media for classification
+            fva_rich = cobra.flux_analysis.flux_variability_analysis(model, fraction_of_optimum=0.001)
+            for rxn in model.reactions:
+                if rxn.id in fva_rich.index:
+                    min_f = fva_rich.loc[rxn.id, 'minimum']
+                    max_f = fva_rich.loc[rxn.id, 'maximum']
+                    if abs(min_f) < 1e-6 and abs(max_f) < 1e-6:
+                        rich_fva_classes[rxn.id] = 'blocked'
+                    elif min_f > 1e-6:
+                        rich_fva_classes[rxn.id] = 'essential_forward'
+                    elif max_f < -1e-6:
+                        rich_fva_classes[rxn.id] = 'essential_reverse'
+                    elif min_f < -1e-6 and max_f > 1e-6:
+                        rich_fva_classes[rxn.id] = 'reversible'
+                    elif max_f > 1e-6:
+                        rich_fva_classes[rxn.id] = 'forward_only'
+                    elif min_f < -1e-6:
+                        rich_fva_classes[rxn.id] = 'reverse_only'
+                    else:
+                        rich_fva_classes[rxn.id] = 'variable'
+        except Exception as e:
+            print(f"Warning: Rich media analysis failed: {e}")
+
+    # Build metabolite list as JSON dictionaries
+    metabolites_list = []
+    for met in model.metabolites:
+        met_dict = {
+            'id': met.id,
+            'name': met.name,
+            'formula': met.formula,
+            'charge': met.charge,
+            'compartment': met.compartment,
+            'annotation': dict(met.annotation) if met.annotation else {}
+        }
+        metabolites_list.append(met_dict)
+
+    # Build reaction list as JSON dictionaries
+    reactions_list = []
+    for rxn in model.reactions:
+        rxn_dict = {
+            'id': rxn.id,
+            'name': rxn.name,
+            'reaction': rxn.reaction,
+            'lower_bound': rxn.lower_bound,
+            'upper_bound': rxn.upper_bound,
+            'gene_reaction_rule': rxn.gene_reaction_rule,
+            'subsystem': rxn.subsystem if hasattr(rxn, 'subsystem') else '',
+            'annotation': dict(rxn.annotation) if rxn.annotation else {},
+            'metabolites': {met.id: coef for met, coef in rxn.metabolites.items()}
+        }
+        reactions_list.append(rxn_dict)
+
+    # Build the comprehensive output data
+    output_data = {
+        'success': True,
+        'model_info': {
+            'model_id': model.id,
+            'num_reactions': len(model.reactions),
+            'num_metabolites': len(model.metabolites),
+            'num_genes': len(model.genes),
+            'genome_class': genome_class,
+            'core_gapfill': core_gf,
+            'gs_gapfill': gf_rxns,
+            'growth': growth
+        },
+        'metabolites': metabolites_list,
+        'reactions': reactions_list,
+        'gapfilled_reactions': {
+            'core': core_gf_rxns,
+            'minimal_media': minimal_gf_rxns,
+            'rich_media_essential': rich_gf_rxns
+        },
+        'flux_analysis': {
+            'minimal_media': {
+                'pfba_fluxes': minimal_pfba_fluxes,
+                'fva_classes': minimal_fva_classes
+            },
+            'rich_media': {
+                'pfba_fluxes': rich_pfba_fluxes,
+                'fva_classes': rich_fva_classes
+            }
+        }
+    }
+
+    # Save to JSON file
+    with open(output_filename + "_data.json", 'w') as f:
+        json.dump(output_data, f, indent=2)
+
+    return output_data
+
+
+def run_model_reconstruction(input_filename, output_filename, classifier_dir, kbversion):
     worker_util = MSReconstructionUtils(kbversion=kbversion)
 
     # Clear MSModelUtil cache for this process

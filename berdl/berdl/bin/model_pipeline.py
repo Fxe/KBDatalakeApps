@@ -81,6 +81,16 @@ def main(params):
     results_dir = output_dir / "models"
     results_dir.mkdir(parents=True, exist_ok=True)
 
+    filename_prefix_rast = '_rast.tsv'  # RAST annotation prefix
+    for filename_rast in user_genome_dir.glob('*' + filename_prefix_rast):
+        genome_id = filename_rast.name[:-len(filename_prefix_rast)]  # get genome_id
+        print(genome_id, filename_rast)
+        # build MSGenome
+    for filename_rast in pangenome_dir.glob('**/*' + filename_prefix_rast):
+        genome_id = filename_rast.name[:-len(filename_prefix_rast)]  # get genome_id
+        print(genome_id, filename_rast)
+        # build MSGenome
+
     work_items = []
     for tsv_path in all_tsvs:
         stem = tsv_path.stem
@@ -88,11 +98,12 @@ def main(params):
         work_items.append((str(tsv_path), output_base))
 
     print(f"\n--- Model Reconstruction ({len(work_items)} genomes, 10 workers) ---")
+    futures = {}
     with ProcessPoolExecutor(max_workers=10) as executor:
-        futures = {
-            executor.submit(run_model_reconstruction, inp, outp, classifier_dir, kbversion): (inp, outp)
-            for inp, outp in work_items
-        }
+        for inp, outp in work_items:
+            print(f'submit - run_model_reconstruction {inp} {outp} {classifier_dir} {kbversion}')
+            _future = executor.submit(run_model_reconstruction, inp, outp, classifier_dir, kbversion)
+            futures[_future] = (inp, outp)
         for future in as_completed(futures):
             inp, outp = futures[future]
             try:

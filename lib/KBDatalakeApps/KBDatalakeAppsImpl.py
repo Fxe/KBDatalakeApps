@@ -386,7 +386,7 @@ Author: chenry
         path_user_genome = path_root / "genome"
         path_user_genome.mkdir(parents=True, exist_ok=True)
         tasks_input_genome = []
-        tasks_input_genome_rast = []
+        tasks_rast = []
         for filename_faa in os.listdir(str(path_user_genome)):
             if filename_faa.endswith('.faa'):
                 print('found', filename_faa)
@@ -394,7 +394,7 @@ Author: chenry
                     print('skip_annotation')
                 else:
                     th = executor.run_task(task_rast, path_user_genome / filename_faa, self.rast_client)
-                    tasks_input_genome_rast.append(th)
+                    tasks_rast.append(th)
                     tasks_input_genome.append(th)
                     tasks_input_genome.append(executor.run_task(task_kofam,
                                                                 path_user_genome / filename_faa,
@@ -428,14 +428,14 @@ Author: chenry
                 if path_pangenome_members.exists() and not skip_annotation:
                     for _f in os.listdir(str(path_pangenome_members)):
                         if _f.endswith('.faa'):
-                            tasks_pangeome.append(executor.run_task(task_rast,
-                                                                    path_pangenome_members / _f,
-                                                                    self.rast_client))
+                            th = executor.run_task(task_rast, path_pangenome_members / _f, self.rast_client)
+                            tasks_rast.append(th)
+                            tasks_pangeome.append(th)
                             tasks_pangeome.append(executor.run_task(self.run_annotation_pipeline,
                                                                     path_pangenome_members / _f))
 
         print('Task barrier input genome annotation RAST')
-        for t in tasks_input_genome_rast:
+        for t in tasks_rast:
             print(f'await for {t.args} {t.status}')
             t.wait()
 
