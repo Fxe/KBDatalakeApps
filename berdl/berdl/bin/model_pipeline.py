@@ -110,7 +110,9 @@ def main(params):
     for filename_rast in all_tsvs:
         genome_id = filename_rast.name[:-len(filename_prefix_rast)]  # get genome_id
         print(genome_id, filename_rast)
-        genomes_to_process[genome_id] = read_rast_as_genome(filename_rast, filename_rast.parent / genome_id)
+        genomes_to_process[genome_id] = (
+            read_rast_as_genome(filename_rast, genome_id),
+            filename_rast.parent / genome_id)
 
     # Step 3: Run model reconstruction in parallel
     results_dir = output_dir / "models"
