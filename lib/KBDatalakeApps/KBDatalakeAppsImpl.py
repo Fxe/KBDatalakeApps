@@ -495,6 +495,7 @@ Author: chenry
         executor.shutdown()
 
         # safe to build table all task barrier reached
+        """
         print(f'Export tsv tables [models, phenotypes]')
         self.util.build_model_tables(model_path=str(path_root / 'models'))
         self.util.build_phenotype_tables(
@@ -508,6 +509,7 @@ Author: chenry
             fitness_genomes_dir='/data/reference_data/phenotype_data',
             reference_phenosim_dir='/data/reference_data/phenotype_data/phenosims'
         )
+        """
         for folder_pangenome in os.listdir(str(path_pangenome)):
             if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                 print(f'Build table for pangenome folder: {folder_pangenome}')

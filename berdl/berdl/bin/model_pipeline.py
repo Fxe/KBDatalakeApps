@@ -60,6 +60,7 @@ def main(params):
     all_tsvs = [f for f in sorted(user_genome_dir.glob("user_*.tsv"))
                 if not f.name.endswith(_skip_suffixes)]
     print(f"Found {len(all_tsvs)} user genome TSVs in {user_genome_dir}")
+    print(all_tsvs)
 
     # Add pangenome member TSVs
     pangenome_dir = output_dir / "pangenome"
@@ -74,6 +75,7 @@ def main(params):
                     print(f"Found {len(rast_tsvs)} pangenome TSVs in {genome_dir}")
 
     print(f"Total TSVs to process: {len(all_tsvs)}")
+    print(all_tsvs)
 
     # Step 3: Run model reconstruction in parallel
     results_dir = output_dir / "models"
