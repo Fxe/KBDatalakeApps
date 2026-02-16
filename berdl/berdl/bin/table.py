@@ -16,7 +16,7 @@ def main(input_params, selected_clade_member):
     with open(paths_pangenome.genome_prep_clade_data, 'r') as fh:
         user_to_clade = json.load(fh)
         # filter all user genomes that belong to the selected clade member
-        input_genomes = [u for u, c in user_to_clade.items() if c == selected_clade_member]
+        input_genomes = [f'user_{u}' for u, c in user_to_clade.items() if c == selected_clade_member]
     print(f'build table with the following input genomes: {input_genomes}')
     builder = DatalakeTableBuilder(paths_root, paths_pangenome, input_genomes, True, True)
     builder.build()
