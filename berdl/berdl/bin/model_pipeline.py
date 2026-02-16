@@ -114,7 +114,7 @@ def main(params):
         print(genome_id, filename_rast)
         genomes_to_process[genome_id] = (
             read_rast_as_genome(filename_rast, genome_id),
-            filename_rast.parent / genome_id)
+            output_dir / 'models' / genome_id)
 
     # Step 3: Run model reconstruction in parallel
     results_dir = output_dir / "models"
