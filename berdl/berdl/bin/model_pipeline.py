@@ -1,9 +1,13 @@
 import os
+import sys
 import json
 import argparse
 import traceback
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
+sys.path = ["/kb/module/lib","/deps/KBUtilLib/src"] + sys.path
+
 from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils, run_model_reconstruction, run_phenotype_simulation
 
 
@@ -11,37 +15,36 @@ def main(params):
     """Run model reconstruction, phenotype simulation, table building, and BERDL database pipeline."""
     token = params['token']
     scratch = params['scratch']
-    kbase_endpoint = params.get('kbase_endpoint', '')
-    kbversion = params.get('kbversion', 'appdev')
+    kbversion = params['kbversion']
     max_phenotypes = params.get('max_phenotypes', None)
     input_refs = params['input_refs']
+    module_path = params.get('module_path', '/kb/module')
+    data_path = f"{module_path}/data"
 
     # Construct SDK config (container paths)
     sdk_config = {
         "kbversion": kbversion,
         "scratch": scratch,
         "reference_path": "/data",
-        "module_path": "/kb/module",
+        "module_path": module_path,
         "max_phenotypes": max_phenotypes,
-        "experimental_phenotype_datafile": "/kb/module/data/experimental_data.json",
-        "phenotypeset_file": "/kb/module/data/full_phenotype_set.json",
+        "experimental_phenotype_datafile": f"{data_path}/experimental_data.json",
+        "phenotypeset_file": f"{data_path}/full_phenotype_set.json",
         "fitness_genomes_dir": "/data/reference_data/phenotype_data/fitness_genomes/",
         "reference_phenosim_dir": "/data/reference_data/phenotype_data/phenosims",
-        "experimental_essentiality_datafile": "/kb/module/data/essential_genes.csv"
+        "experimental_essentiality_datafile": f"{data_path}/essential_genes.csv"
     }
 
     output_dir = Path(scratch)
-    classifier_dir = "/kb/module/data"
-    data_path = "/kb/module/data"
+    classifier_dir = data_path
 
     # Initialize KBDataLakeUtils for genome conversion and table building
     kbdl = KBDataLakeUtils(
         reference_path=sdk_config["reference_path"],
         module_path=sdk_config["module_path"],
-        kbendpoint=kbase_endpoint,
-        kbversion=kbversion,
+        kb_version=kbversion,
+        token=token
     )
-    kbdl.set_token(token)
 
     # Step 1: Convert user genomes to full-format TSV from workspace
     user_genome_dir = output_dir / "genome"
@@ -56,7 +59,6 @@ def main(params):
         print(f"  Wrote: {user_genome_tsv}")
 
     # Step 2: Collect RAST-annotated TSVs for model reconstruction
-    """
     _skip_suffixes = ("_kbasedump.tsv", "_bakta.tsv", "_KOfamscan.tsv", "_PSORT.tsv", "_genome_data.tsv")
     all_tsvs = [f for f in sorted(user_genome_dir.glob("user_*.tsv"))
                 if not f.name.endswith(_skip_suffixes)]
@@ -64,6 +66,7 @@ def main(params):
     print(all_tsvs)
 
     # Add pangenome member TSVs
+    """
     pangenome_dir = output_dir / "pangenome"
     if pangenome_dir.exists():
         for clade_dir in pangenome_dir.iterdir():
@@ -92,7 +95,6 @@ def main(params):
         print(genome_id, filename_rast)
         all_tsvs.append(str(filename_rast))
         # build MSGenome
-
     # Step 3: Run model reconstruction in parallel
     results_dir = output_dir / "models"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -105,10 +107,10 @@ def main(params):
 
     print(f"\n--- Model Reconstruction ({len(work_items)} genomes, 10 workers) ---")
     futures = {}
-    with ProcessPoolExecutor(max_workers=10) as executor:
+    with ProcessPoolExecutor(max_workers=20) as executor:
         for inp, outp in work_items:
             print(f'submit - run_model_reconstruction {inp} {outp} {classifier_dir} {kbversion}')
-            _future = executor.submit(run_model_reconstruction, inp, outp, classifier_dir, kbversion)
+            _future = executor.submit(run_model_reconstruction, inp, outp, classifier_dir, kbversion,token)
             futures[_future] = (inp, outp)
         for future in as_completed(futures):
             inp, outp = futures[future]
@@ -123,7 +125,6 @@ def main(params):
     cobra_files = sorted(results_dir.glob("*_cobra.json"))
     data_files = sorted(results_dir.glob("*_data.json"))
     print(f"\nModel reconstruction done. {len(cobra_files)} cobra models, {len(data_files)} data files")
-
     # Step 4: Run phenotype simulation in parallel
     pheno_items = []
     phenopath = output_dir / "phenotypes"
@@ -137,7 +138,7 @@ def main(params):
     print(f"\n--- Phenotype Simulation ({len(pheno_items)} models, 10 workers) ---")
     with ProcessPoolExecutor(max_workers=10) as executor:
         futures = {
-            executor.submit(run_phenotype_simulation, model_file, pheno_file, data_path, max_phenotypes, kbversion): model_file
+            executor.submit(run_phenotype_simulation, model_file, pheno_file, data_path, max_phenotypes, kbversion,token): model_file
             for model_file, pheno_file in pheno_items
         }
         for future in as_completed(futures):

@@ -1287,7 +1287,7 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
         except Exception as e:
             print(f"Warning: Failed to save KBase report: {e}")
 
-def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenotypes,kbversion):
+def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenotypes,kbversion,token):
     """
     Worker function for parallel phenotype simulation.
     This runs in a separate process with its own memory space.
@@ -1319,9 +1319,9 @@ def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenot
 
         # Create a minimal util instance for this worker
         class PhenotypeWorkerUtil(MSReconstructionUtils,MSFBAUtils,MSBiochemUtils):
-            def __init__(self, kbversion):
-                super().__init__(name="PhenotypeWorkerUtil", kbversion=kbversion)
-        pheno_util = PhenotypeWorkerUtil(kbversion=kbversion)
+            def __init__(self, kbversion, token):
+                super().__init__(name="PhenotypeWorkerUtil", kb_version=kbversion, token=token)
+        pheno_util = PhenotypeWorkerUtil(kbversion=kbversion, token=token)
 
         # Get template for gapfilling
         template = pheno_util.get_template(pheno_util.templates["gn"], None)
@@ -1654,8 +1654,8 @@ def run_model_reconstruction2(genome_id: str, genome: MSGenome, output_filename,
     return output_data
 
 
-def run_model_reconstruction(input_filename, output_filename, classifier_dir, kbversion):
-    worker_util = MSReconstructionUtils(kbversion=kbversion)
+def run_model_reconstruction(input_filename, output_filename, classifier_dir, kbversion, token):
+    worker_util = MSReconstructionUtils(kb_version=kbversion, token=token)
 
     # Clear MSModelUtil cache for this process
     MSModelUtil.mdlutls.clear()
@@ -1664,66 +1664,20 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir, kb
     genome_id = os.path.splitext(os.path.basename(input_filename))[0]
     print(f'genome_id: {genome_id}')
     # Load features from genome TSV
-    gene_df = pd.read_csv(input_filename, sep='\t')
+    gene_df = pd.read_csv(input_filename, sep='\t', index_col=0).to_dict()['functions']
 
     # Create MSGenome from features
     genome = MSGenome()
     genome.id = genome_id
     genome.scientific_name = genome_id
 
-    # Detect TSV format based on columns present
-    columns = set(gene_df.columns)
-    is_simple_format = 'id' in columns and 'functions' in columns and 'protein_translation' not in columns
-    print(f'TSV format detected: {"simple (id, function)" if is_simple_format else "full genome TSV"}')
-
     ms_features = []
-    for _, gene in gene_df.iterrows():
-        if is_simple_format:
-            # Simple format: columns are 'id' and 'functions'
-            # 'functions' is semicolon-delimited list of RAST descriptions
-            gene_id_val = gene.get('id', '')
-            if pd.notna(gene_id_val) and gene_id_val:
-                feature = MSFeature(str(gene_id_val), '')  # No protein sequence in simple format
-                func_col = gene.get('functions', '')
-                if pd.notna(func_col) and func_col:
-                    # Split on RAST multi-role delimiters: ; @ /
-                    for func_desc in re.split(r"\s*;\s+|\s+[\@\/]\s+", str(func_col)):
-                        func_desc = func_desc.strip()
-                        if func_desc:
-                            feature.add_ontology_term('RAST', func_desc)
-                ms_features.append(feature)
-        else:
-            # Full genome TSV format
-            protein = gene.get('protein_translation', '')
-            gene_id_val = gene.get('gene_id', '')
-            if pd.notna(protein) and protein:
-                feature = MSFeature(str(gene_id_val), str(protein))
-
-                # Parse plain functions column for RAST descriptions
-                func_col = gene.get('functions', '')
-                if pd.notna(func_col) and func_col:
-                    # Split on RAST multi-role delimiters: ; @ /
-                    for func_desc in re.split(r"\s*;\s+|\s+[\@\/]\s+", str(func_col)):
-                        func_desc = func_desc.strip()
-                        if func_desc:
-                            feature.add_ontology_term('RAST', func_desc)
-
-                # Parse Annotation:SSO column for SSO IDs
-                # Format: SSO:nnnnn:description|MSRXN:rxn1,rxn2;SSO:mmmmm:desc2|rxn3
-                sso_col = gene.get('Annotation:SSO', '')
-                if pd.notna(sso_col) and sso_col:
-                    for entry in str(sso_col).split(';'):
-                        entry = entry.strip()
-                        if not entry:
-                            continue
-                        term_part = entry.split('|')[0]
-                        parts = term_part.split(':')
-                        if len(parts) >= 2 and parts[0] == 'SSO':
-                            sso_id = parts[1]
-                            feature.add_ontology_term('SSO', sso_id)
-
-                ms_features.append(feature)
-
+    for feature_id, rast_str in gene_df.items():
+        feature = MSFeature(feature_id, "")
+        if not pd.isna(rast_str):
+            for v in rast_str.split('; '):
+                feature.add_ontology_term('RAST', v)
+        ms_features.append(feature)
     genome.add_features(ms_features)
 
     # Diagnostic: count features with RAST terms
