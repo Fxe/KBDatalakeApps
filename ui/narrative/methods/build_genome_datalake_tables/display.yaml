@@ -136,7 +136,7 @@ parameters:
 
     skip_save_genome_annotation:
         ui-name: |
-            Skip
+            Skip Save Genome Annotation
         short-hint: |
             x
         long-hint: |
