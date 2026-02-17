@@ -175,14 +175,14 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
         ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
         # Build provenance referencing the datalake pipeline
-        provenance = [{
+        provenance = {
             "description": "Annotations from KBDatalakeApps build_genome_datalake_tables pipeline",
             "input_ws_objects": list(genome_refs),
             "method": "build_genome_datalake_tables",
             "method_params": [{"input_refs": genome_refs}],
             "service": "KBDatalakeApps",
-            "service_ver": "0.0.1",
-        }]
+            "service_ver": "0.0.1"
+        }
 
         # Open database and discover which ontology columns exist
         conn = sqlite3.connect(database_filename)
@@ -270,6 +270,14 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
                 callback_url=self._callback_url,
                 token=self.get_token(namespace="kbase"),
             )
+            anno_util.set_provenance(
+                description=provenance["description"],
+                method=provenance["method"],
+                input_objects=provenance["input_ws_objects"],
+                params=provenance["method_params"],
+                service=provenance["service"],
+                version=provenance["service_ver"]
+            )
             # Inject the pre-built dfu_client from the Impl
             if self._dfu_client:
                 anno_util.set_callback_client("DataFileUtil", self._dfu_client)
@@ -282,8 +290,7 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
                 "input_ref": genome_ref,
                 "output_workspace": output_workspace,
                 "output_name": output_name,
-                "events": events,
-                "provenance": provenance,
+                "events": events
             })
 
             output_ref = result.get("output_ref")

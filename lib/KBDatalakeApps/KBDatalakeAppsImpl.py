@@ -289,7 +289,7 @@ Author: chenry
             fh.write(ctx['token'])
         self.util = KBDataLakeUtils(kbendpoint=self.config["kbase-endpoint"], reference_path="/data/",
                                     module_path="/kb/module",token=ctx['token'],
-                                    dfu_client=self.dfu, callback_url=self.callback_url)
+                                    dfu_client=self.dfu,gfu_client=self.gfu, callback_url=self.callback_url)
         self.util.set_token(get_berdl_token(), namespace="berdl")
         self.hs = HandleService(self.config["handle-service-url"], token=ctx['token'])
         skip_save_genome_annotation = params['skip_save_genome_annotation'] == 1
