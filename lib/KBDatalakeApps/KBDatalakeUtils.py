@@ -241,8 +241,11 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
                     if value and str(value).strip():
                         terms = [t.strip() for t in str(value).split(";") if t.strip()]
                         if terms:
-                            ontology_terms[feature_id] = terms
-
+                            ontology_terms[feature_id] = []
+                            for term in terms:
+                                ontology_terms[feature_id].append({
+                                    "term": term
+                                })
                 if not ontology_terms:
                     continue
 
