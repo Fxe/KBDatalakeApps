@@ -608,9 +608,9 @@ Author: chenry
             'name': output_object_name,
             'description': '',
             'genomeset_ref': '77057/3/1',
-            'pangenome_data': [pangenome_data_list],
+            'pangenome_data': pangenome_data_list,
         }
-        saved_object_info = self.kbase_api.save_object('fake_output',
+        saved_object_info = self.kbase_api.save_object(output_object_name,
                                    params['workspace_name'],
                                            'KBaseFBA.GenomeDataLakeTables',
                                            output_object,
