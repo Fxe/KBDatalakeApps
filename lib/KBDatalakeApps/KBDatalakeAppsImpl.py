@@ -611,10 +611,10 @@ Author: chenry
             'pangenome_data': pangenome_data_list,
         }
         saved_object_info = self.kbase_api.save_object(output_object_name,
-                                   params['workspace_name'],
-                                           'KBaseFBA.GenomeDataLakeTables',
-                                           output_object,
-                                           meta={}
+                                                       params['workspace_name'],
+                                                       'KBaseFBA.GenomeDataLakeTables',
+                                                       output_object,
+                                                       meta={}
         )
 
         print(saved_object_info)

@@ -520,14 +520,15 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_to_data = self.root_genome.root / 'phenotypes' / 'genome_phenotypes.tsv'
-        ldf = pl.scan_csv(path_to_data, separator='\t')
-        genome_ids = set(
-            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
-        excluded = genome_ids - self.filter_genome_ids
-        print('genome_phenotype excluded', excluded)
+        if path_to_data.exists():
+            ldf = pl.scan_csv(path_to_data, separator='\t')
+            genome_ids = set(
+                ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+            excluded = genome_ids - self.filter_genome_ids
+            print('genome_phenotype excluded', excluded)
 
-        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
-        df_filter.to_pandas().to_sql("genome_phenotype", conn, if_exists="append", index=False)
+            df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+            df_filter.to_pandas().to_sql("genome_phenotype", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
@@ -558,14 +559,15 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_to_data = self.root_genome.root / 'phenotypes' / 'gene_phenotypes.tsv'
-        ldf = pl.scan_csv(path_to_data, separator='\t')
-        genome_ids = set(
-            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
-        excluded = genome_ids - self.filter_genome_ids
-        print('gene_phenotype excluded', excluded)
+        if path_to_data.exists():
+            ldf = pl.scan_csv(path_to_data, separator='\t')
+            genome_ids = set(
+                ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+            excluded = genome_ids - self.filter_genome_ids
+            print('gene_phenotype excluded', excluded)
 
-        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
-        df_filter.to_pandas().to_sql("gene_phenotype", conn, if_exists="append", index=False)
+            df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+            df_filter.to_pandas().to_sql("gene_phenotype", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
@@ -590,14 +592,15 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_to_data = self.root_genome.root / 'models' / 'gene_reaction_data.tsv'
-        ldf = pl.scan_csv(path_to_data, separator='\t')
-        genome_ids = set(
-            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
-        excluded = genome_ids - self.filter_genome_ids
-        print(f'{table_name} excluded: {excluded}')
+        if path_to_data.exists():
+            ldf = pl.scan_csv(path_to_data, separator='\t')
+            genome_ids = set(
+                ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+            excluded = genome_ids - self.filter_genome_ids
+            print(f'{table_name} excluded: {excluded}')
 
-        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
-        df_filter.to_pandas().to_sql(table_name, conn, if_exists="append", index=False)
+            df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+            df_filter.to_pandas().to_sql(table_name, conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
@@ -627,14 +630,15 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_data = self.root_genome.root / 'models' / 'genome_reactions.tsv'
-        ldf = pl.scan_csv(path_data, separator='\t')
-        genome_ids = set(
-            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
-        excluded = genome_ids - self.filter_genome_ids
-        print('genome_reaction excluded', excluded)
+        if path_data.exists():
+            ldf = pl.scan_csv(path_data, separator='\t')
+            genome_ids = set(
+                ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+            excluded = genome_ids - self.filter_genome_ids
+            print('genome_reaction excluded', excluded)
 
-        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
-        df_filter.to_pandas().to_sql("genome_reaction", conn, if_exists="append", index=False)
+            df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+            df_filter.to_pandas().to_sql("genome_reaction", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
@@ -665,14 +669,15 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_data = self.root_genome.root / 'phenotypes' / 'model_performance.tsv'
-        ldf = pl.scan_csv(path_data, separator='\t')
-        genome_ids = set(
-            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
-        excluded = genome_ids - self.filter_genome_ids
-        print('model_performance excluded', excluded)
+        if path_data.exists():
+            ldf = pl.scan_csv(path_data, separator='\t')
+            genome_ids = set(
+                ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+            excluded = genome_ids - self.filter_genome_ids
+            print('model_performance excluded', excluded)
 
-        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
-        df_filter.to_pandas().to_sql("model_performance", conn, if_exists="append", index=False)
+            df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+            df_filter.to_pandas().to_sql("model_performance", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
@@ -694,8 +699,9 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_data = self.root_genome.root / 'models' / 'media_compositions.tsv'
-        pl.read_csv(path_data, separator='\t').to_pandas().to_sql(
-            "media_composition", conn, if_exists="append", index=False)
+        if path_data.exists():
+            pl.read_csv(path_data, separator='\t').to_pandas().to_sql(
+                "media_composition", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
