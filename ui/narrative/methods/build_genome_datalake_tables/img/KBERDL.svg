@@ -1,0 +1,57 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  
+  <!-- Outer square box -->
+  <rect x="10" y="10" width="180" height="180"
+        fill="white"
+        stroke="#2196f3"
+        stroke-width="2"
+        rx="12"/>
+
+  <!-- Centered Text -->
+  <text x="100" y="60"
+        text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="35"
+        font-weight="600"
+        fill="black">
+    Genome
+  </text>
+
+  <text x="100" y="100"
+        text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="30"
+        font-weight="600"
+        fill="black">
+    Tables
+  </text>
+
+  <!-- Waves group (positioned lower to leave top space for logo) -->
+  <g transform="translate(20,80)">
+    
+    <!-- Wave definition -->
+    <defs>
+      <path id="wave"
+            d="M0 10
+               Q 10 0, 20 10
+               T 40 10
+               T 60 10
+               T 80 10
+               T 100 10
+               T 120 10
+               T 140 10
+               T 160 10"
+            fill="none"
+            stroke="#2196f3"
+            stroke-width="3"
+            stroke-linecap="round"/>
+    </defs>
+
+    <!-- Evenly spaced waves -->
+    
+    <use href="#wave" y="35"/>
+    <use href="#wave" y="55"/>
+    <use href="#wave" y="75"/>
+  </g>
+
+</svg>
