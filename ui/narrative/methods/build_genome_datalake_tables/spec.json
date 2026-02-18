@@ -1,10 +1,10 @@
 {
     "ver": "0.0.1",
     "authors": [
-        "chenry"
+        "chenry", "filipeliu"
     ],
     "contact": "chenry@anl.gov",
-    "categories": ["active", "BERDL"],
+    "categories": ["active", "KBERDL"],
     "widgets": {
         "output": "no-display",
         "input": null
