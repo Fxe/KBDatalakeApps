@@ -7,6 +7,46 @@ import pandas as pd
 import pickle
 import json
 
+
+def validate_genome_refs(genome_refs: dict) -> dict:
+    genome_name_to_refs = {}
+    for k, v in genome_refs.items():
+        genome_name_to_refs.setdefault(v, set()).add(k)
+
+    raise_error = {}
+    genome_to_ref = {}
+    for n, refs in genome_name_to_refs.items():
+        if len(refs) > 1:
+            raise_error[n] = list(refs)
+        else:
+            genome_to_ref[n] = list(refs)[0]
+    if len(raise_error) > 0:
+        raise ValueError(f"Invalid genome input. Duplicate genome ids with distinct refs: {raise_error}")
+
+    return genome_to_ref
+
+
+def input_refs_to_genome_refs(refs, kbase_api):
+    genome_refs = {}
+    for ref in refs:
+        info = kbase_api.get_object_info(ref)
+        if info.type == 'KBaseGenomes.Genome':
+            genome_refs[str(info)] = info.id
+        elif info.type == 'KBaseSearch.GenomeSet':
+            genome_set = kbase_api.get_from_ws(str(info))
+            for i in genome_set.elements.values():
+                info = kbase_api.get_object_info(i['ref'])
+                genome_refs[str(info)] = info.id
+        elif info.type == 'KBaseSets.GenomeSet':
+            genome_set = kbase_api.get_from_ws(str(info))
+            for i in genome_set.items:
+                info = kbase_api.get_object_info(i['ref'])
+                genome_refs[str(info)] = info.id
+        else:
+            raise ValueError(f'bad input ref type: {info.type}')
+    return genome_refs
+
+
 def human_size(size):
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if size < 1024:

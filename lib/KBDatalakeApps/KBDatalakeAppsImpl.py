@@ -29,6 +29,7 @@ from executor.task_executor import TaskExecutor
 from executor.task import task_rast, task_kofam, task_psortb, task_bakta
 from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils, generate_ontology_tables
 from KBDatalakeApps.utils import upload_blob_file, print_path, get_classifier, read_rast_as_genome
+from KBDatalakeApps.utils import input_refs_to_genome_refs, validate_genome_refs
 
 # Import KBUtilLib utilities for common functionality
 #from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
@@ -75,27 +76,6 @@ Author: chenry
         for key in required_keys:
             if key not in params or params[key] is None:
                 raise ValueError(f"Required parameter '{key}' is missing")
-
-    @staticmethod
-    def input_refs_to_genome_refs(refs, kbase_api):
-        genome_refs = {}
-        for ref in refs:
-            info = kbase_api.get_object_info(ref)
-            if info.type == 'KBaseGenomes.Genome':
-                genome_refs[str(info)] = info.id
-            elif info.type == 'KBaseSearch.GenomeSet':
-                genome_set = kbase_api.get_from_ws(str(info))
-                for i in genome_set.elements.values():
-                    info = kbase_api.get_object_info(i['ref'])
-                    genome_refs[str(info)] = info.id
-            elif info.type == 'KBaseSets.GenomeSet':
-                genome_set = kbase_api.get_from_ws(str(info))
-                for i in genome_set.items:
-                    info = kbase_api.get_object_info(i['ref'])
-                    genome_refs[str(info)] = info.id
-            else:
-                raise ValueError(f'bad input ref type: {info.type}')
-        return genome_refs
 
     @staticmethod
     def run_genome_pipeline(input_file):
@@ -320,17 +300,21 @@ Author: chenry
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
 
-        genome_refs = self.input_refs_to_genome_refs(input_refs, self.kbase_api)
-        print('input_genomes:', genome_refs)
+        genome_refs_all = input_refs_to_genome_refs(input_refs, self.kbase_api)
+        print('collected refs:', genome_refs_all)
+        genome_to_ref = validate_genome_refs(genome_refs_all)
+        print('Genome To Ref:', genome_to_ref)
+
+        # Validate required parameters
+        self._validate_params(params, ['input_refs', 'workspace_name'])
 
         with open(str(input_params.resolve()), 'w') as fh:
             _params = dict(params)
             _params['_ctx'] = ctx
             _params['_config'] = self.config
-            _params['_genome_refs'] = genome_refs
-
-            print('to create a copy for debug:', _params)
-
+            _params['_genome_refs'] = genome_refs_all
+            if DEBUG_MODE:
+                print('to create a copy for debug:', _params)
             fh.write(json.dumps(_params))
 
         if DEBUG_MODE:
@@ -348,10 +332,10 @@ Author: chenry
         #if not skip_annotation:
         #    test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
 
-        # Validate required parameters
-        self._validate_params(params, ['input_refs', 'workspace_name'])
-
         input_genome_to_clade = {}
+        clade_to_input_genomes = {}
+        genome_refs = {}
+        genome_refs_skipped = {}
         path_root = Path(self.shared_folder)
         if not skip_genome_pipeline:
             self.run_genome_pipeline(input_params.resolve())
@@ -360,6 +344,19 @@ Author: chenry
                 print(f'found input genome pangenome assignments: {path_user_to_clade_json}')
                 with open(path_user_to_clade_json, 'r') as fh:
                     input_genome_to_clade = json.load(fh)
+
+            for genome_name, clade in input_genome_to_clade.items():
+                if clade not in clade_to_input_genomes:
+                    if len(clade_to_input_genomes[clade]) <= param_clade_limit:
+                        clade_to_input_genomes[clade] = set()
+                    else:
+                        print(f'WARNING CLADE LIMIT REACHED. Genome -> Clade skip. {genome_name} -> {clade}')
+                if clade in clade_to_input_genomes:
+                    clade_to_input_genomes[clade].add(genome_name)
+                    genome_refs[genome_to_ref[genome_name]] = genome_name
+                else:
+                    genome_refs_skipped[genome_to_ref[genome_name]] = genome_name
+
             for genome_ref in genome_refs:
                 info = self.util.get_object_info(genome_ref)
                 path_genome_tsv = path_root / "genome" / f'user_{info[1]}_genome.tsv'
@@ -367,23 +364,19 @@ Author: chenry
                 self.util.run_user_genome_to_tsv(genome_ref, str(path_genome_tsv))
         else:
             print('skip genome pipeline')
-        clade_to_input_genomes = {}
-        for input_genome, clade in input_genome_to_clade.items():
-            if clade not in clade_to_input_genomes:
-                clade_to_input_genomes[clade] = set()
-            clade_to_input_genomes[clade].add(input_genome)
 
         executor = TaskExecutor(max_workers=4)
         path_user_genome = path_root / "genome"
         path_user_genome.mkdir(parents=True, exist_ok=True)
         tasks_input_genome = []
         tasks_rast = []
-        for filename_faa in os.listdir(str(path_user_genome)):
-            if filename_faa.endswith('.faa'):
-                print('found', filename_faa)
-                if skip_annotation:
-                    print('skip_annotation')
-                else:
+        for filename_faa in path_user_genome.glob("*.faa"):
+            genome_name = filename_faa.stem
+            print(f'found protein faa {genome_name} -> {filename_faa}')
+            if skip_annotation:
+                print('skip_annotation')
+            else:
+                if genome_name in set(genome_refs.values()):
                     th = executor.run_task(task_rast, path_user_genome / filename_faa, self.rast_client)
                     tasks_rast.append(th)
                     tasks_input_genome.append(th)
@@ -393,6 +386,8 @@ Author: chenry
                     tasks_input_genome.append(executor.run_task(task_bakta,
                                                                 path_user_genome / filename_faa,
                                                                 self.kb_bakta))
+                else:
+                    print(f'skip genome: {genome_name}')
 
         path_pangenome = path_root / "pangenome"
         path_pangenome.mkdir(parents=True, exist_ok=True)
@@ -461,8 +456,6 @@ Author: chenry
         else:
             print('skip modeling pipeline')
 
-
-
         # Done with all tasks
         print('Task barrier input genome annotation')
         for t in tasks_input_genome:
@@ -514,21 +507,27 @@ Author: chenry
 
         print_path(path_root.resolve())
 
+
+
         # Save annotated genomes back to workspace from each clade's database
         genome_set_items = []
         if not skip_save_genome_annotation:
             for folder_pangenome in os.listdir(str(path_pangenome)):
                 if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                     path_db_file = path_root / 'pangenome' / folder_pangenome / 'db.sqlite'
+                    input_genome_names = clade_to_input_genomes[folder_pangenome]
+                    input_genome_refs = [genome_to_ref[x] for x in input_genome_names]
                     if path_db_file.exists():
-                        print(f'Saving annotated genomes from {folder_pangenome} database')
+                        print(f'Saving annotated genomes {input_genome_refs}} from {folder_pangenome}')
                         saved_items = self.util.save_annotated_genomes(
-                            genome_refs=list(genome_refs.keys()),
+                            genome_refs=input_genome_refs,
                             suffix=suffix,
                             output_workspace=workspace_name,
                             database_filename=str(path_db_file),
                         )
                         genome_set_items += saved_items['items']
+
+        print(f'saved items: {genome_set_items}')
 
         ref_genome_set = self.util.save_genome_set(f"annotated_genomes_{suffix}",
                                                    genome_set_items, workspace_name)
