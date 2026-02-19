@@ -518,7 +518,7 @@ Author: chenry
                     input_genome_names = clade_to_input_genomes[folder_pangenome]
                     input_genome_refs = [genome_to_ref[x] for x in input_genome_names]
                     if path_db_file.exists():
-                        print(f'Saving annotated genomes {input_genome_refs}} from {folder_pangenome}')
+                        print(f'Saving annotated genomes {input_genome_refs} from {folder_pangenome}')
                         saved_items = self.util.save_annotated_genomes(
                             genome_refs=input_genome_refs,
                             suffix=suffix,
