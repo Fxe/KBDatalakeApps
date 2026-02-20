@@ -197,8 +197,8 @@ class BERDLPangenome:
                     genome_contigs.to_fasta(filename_fna)
                     pangenome_members.append(filename_fna.resolve())
 
-        filename_library_input_genomes = self.paths.root / 'library_input_genomes.txt'
-        filename_pangenome_member_library = self.paths.root / 'pangenome_library.txt'
+        filename_library_input_genomes = self.paths.root / 'library' / 'input_genomes.txt'
+        filename_pangenome_member_library = self.paths.root / 'library' / 'pangenome_members.txt'
         if not filename_pangenome_member_library.exists():
             with open(filename_pangenome_member_library, 'w') as fh:
                 for filename_fna in pangenome_members:
